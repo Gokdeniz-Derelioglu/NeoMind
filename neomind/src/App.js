@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
 import { Routes, Route, Link, useNavigate } from "react-router-dom";
 import { useSpring, animated, config } from "@react-spring/web";
+import React, { useState, useEffect, useRef } from "react";
 import { useDrag } from "react-use-gesture";
 
 const companies = [
@@ -26,20 +26,24 @@ function Navbar() {
   return (
     <nav
       style={{
+        position: "sticky",
+        top: 0,
+        left: 0,
+        right: 0,
+        width: "100%", // 100% of parent container (should be full viewport width)
         height: 56,
         backgroundColor: "#2c3e50",
         color: "#ecf0f1",
         display: "flex",
-        justifyContent: "flex-end",
+        justifyContent: "space-between",
         alignItems: "center",
-        padding: "0 24px",
-        fontFamily:
-          "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        boxSizing: "border-box",
         userSelect: "none",
         boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
+        zIndex: 9999,
+        padding: "0 24px", // inner padding for content spacing
+        margin: 0, // ensure no margin
+        overflowX: "hidden", // prevent horizontal scroll
       }}
     >
       <Link
@@ -48,40 +52,63 @@ function Navbar() {
           color: "#ecf0f1",
           textDecoration: "none",
           fontWeight: 600,
-          marginRight: "auto",
           fontSize: 18,
+          userSelect: "none",
         }}
       >
         NeoMind
       </Link>
-      <Link
-        to="/profile"
-        style={{
-          ...navButtonStyle,
-          marginLeft: 0,
-          marginRight: 12,
-          textDecoration: "none",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        Profile
-      </Link>
-      <button
-        onClick={() => alert("Logout clicked")}
-        style={navButtonStyle}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.backgroundColor = "#34495e")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.backgroundColor = "transparent")
-        }
-      >
-        Logout
-      </button>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <Link
+          to="/profile"
+          style={{
+            marginLeft: 12,
+            padding: "6px 14px",
+            borderRadius: 6,
+            backgroundColor: "transparent",
+            border: "none",
+            color: "#ecf0f1",
+            cursor: "pointer",
+            fontSize: 15,
+            fontWeight: 500,
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            userSelect: "none",
+          }}
+        >
+          Profile
+        </Link>
+        <button
+          onClick={() => alert("Logout clicked")}
+          style={{
+            marginLeft: 12,
+            padding: "6px 14px",
+            borderRadius: 6,
+            backgroundColor: "transparent",
+            border: "none",
+            color: "#ecf0f1",
+            cursor: "pointer",
+            fontSize: 15,
+            fontWeight: 500,
+            transition: "background-color 0.3s ease",
+            userSelect: "none",
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "#34495e")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "transparent")
+          }
+        >
+          Logout
+        </button>
+      </div>
     </nav>
   );
 }
+
+
 
 function SwipeCard({ company, onSwipe }) {
   // spring animation for drag & swipe
@@ -147,11 +174,18 @@ function SwipeCard({ company, onSwipe }) {
 }
 
 function Home() {
-  const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [index, setIndex] = React.useState(0);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const swipeDir = React.useRef(null);
 
-  useEffect(() => {
+  const [props, api] = useSpring(() => ({
+    x: 0,
+    rot: 0,
+    scale: 1,
+    config: config.stiff,
+  }));
+
+  React.useEffect(() => {
     function handleResize() {
       setIsMobile(window.innerWidth < 768);
     }
@@ -159,31 +193,55 @@ function Home() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleSwipe = (dir) => {
+  const triggerSwipe = (dir) => {
     if (index >= companies.length) return;
-    setDirection(dir);
-    setTimeout(() => {
-      setIndex((i) => i + 1);
-      setDirection(null);
-    }, 400);
+    swipeDir.current = dir;
+    api.start({
+      x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
+      rot: dir === "right" ? 20 : -20,
+      scale: 1,
+      immediate: false,
+      onResolve: () => {
+        setIndex((i) => i + 1);
+        api.start({ x: 0, rot: 0, scale: 1, immediate: true });
+      },
+    });
   };
 
-  if (index >= companies.length) {
+  const bind = useDrag(
+    ({ active, movement: [mx], direction: [xDir], velocity }) => {
+      const trigger = velocity > 0.3;
+      const dir = xDir < 0 ? "left" : "right";
+
+      if (!active && trigger) {
+        triggerSwipe(dir);
+      } else {
+        api.start({
+          x: active ? mx : 0,
+          rot: active ? mx / 20 : 0,
+          scale: active ? 1.1 : 1,
+          immediate: active,
+        });
+      }
+    },
+    { axis: "x" }
+  );
+
+if (index >= companies.length) {
     return (
       <div
         style={{
-          padding: 24,
-          fontFamily:
-            "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-          color: "#ecf0f1",
-          backgroundColor: "#2c3e50",
-          minHeight: "100vh",
-          textAlign: "center",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          userSelect: "none",
         }}
       >
         <Navbar />
         <h2 style={{ marginTop: 80, fontWeight: 600, fontSize: 24 }}>
-          No more companies to review
+          That's all for now! Please check back later for more companies.
         </h2>
       </div>
     );
@@ -192,27 +250,33 @@ function Home() {
   return (
     <div
       style={{
-        backgroundColor: "#2c3e50",
-        minHeight: "100vh",
-        paddingBottom: 80,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        userSelect: "none",
       }}
     >
       <Navbar />
-      <SwipeCard company={companies[index]} onSwipe={handleSwipe} />
-
-      {/* Show buttons only on desktop */}
-      {!isMobile && (
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: 8,
-          }}
-        >
+      <div
+        style={{
+          flexGrow: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 24,
+          overflow: "hidden",
+          padding: "64px 16px", // increased vertical padding here!
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Reject Button - Left */}
+        {!isMobile && (
           <button
-            onClick={() => handleSwipe("left")}
+            onClick={() => triggerSwipe("left")}
             style={{
-              marginRight: 24,
-              padding: "14px 28px",
+              flexShrink: 0,
+              width: 100,
+              padding: "14px 0",
               fontSize: 18,
               borderRadius: 8,
               border: "2px solid #7f8c8d",
@@ -221,6 +285,8 @@ function Home() {
               cursor: "pointer",
               fontWeight: 600,
               transition: "all 0.3s ease",
+              height: 60,
+              alignSelf: "center",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = "#34495e";
@@ -235,10 +301,55 @@ function Home() {
           >
             Reject
           </button>
-          <button
-            onClick={() => handleSwipe("right")}
+        )}
+
+        {/* Card wrapper for vertical padding */}
+        <div
+          style={{
+            paddingTop: 64,
+            paddingBottom: 64,
+            maxWidth: 420,
+            width: "90vw",
+            boxSizing: "content-box",
+          }}
+        >
+          <animated.div
+            {...bind()}
             style={{
-              padding: "14px 28px",
+              x: props.x,
+              rotateZ: props.rot,
+              scale: props.scale,
+              touchAction: "none",
+              padding: 24,
+              boxShadow: "0 12px 24px rgba(0,0,0,0.15)",
+              borderRadius: 16,
+              backgroundColor: "#d0f0e7",
+              color: "#2c3e50",
+              cursor: "grab",
+              fontFamily:
+                "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+              userSelect: "none",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            <h2 style={{ marginTop: 0, fontWeight: 700 }}>
+              {companies[index].name}
+            </h2>
+            <p style={{ fontSize: 18, lineHeight: 1.5 }}>
+              {companies[index].description}
+            </p>
+          </animated.div>
+        </div>
+
+        {/* Accept Button - Right */}
+        {!isMobile && (
+          <button
+            onClick={() => triggerSwipe("right")}
+            style={{
+              flexShrink: 0,
+              width: 100,
+              padding: "14px 0",
               fontSize: 18,
               borderRadius: 8,
               border: "none",
@@ -247,6 +358,8 @@ function Home() {
               cursor: "pointer",
               fontWeight: 600,
               transition: "background-color 0.3s ease",
+              height: 60,
+              alignSelf: "center",
             }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.backgroundColor = "#16a085")
@@ -257,8 +370,8 @@ function Home() {
           >
             Accept
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
