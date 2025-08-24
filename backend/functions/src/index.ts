@@ -1,32 +1,52 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 
-import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
-import * as logger from "firebase-functions/logger";
+admin.initializeApp();
+const db = admin.firestore();
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+// ✅ Get all jobs
+export const getJobs = functions.https.onRequest(async (req, res) => {
+  try {
+    const snapshot = await db.collection("jobs").get();
+    const jobs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(jobs);
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+// ✅ Swipe a job (like/dislike)
+export const swipeJob = functions.https.onRequest(async (req, res) => {
+  try {
+    const { userId, jobId, liked } = req.body;
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+    await db.collection("swipes").add({
+      userId,
+      jobId,
+      liked,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
+
+// ✅ Apply for a job
+export const applyJob = functions.https.onRequest(async (req, res) => {
+  try {
+    const { userId, jobId } = req.body;
+
+    await db.collection("applications").add({
+      userId,
+      jobId,
+      status: "pending",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
