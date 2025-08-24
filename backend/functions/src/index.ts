@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { addUser, getUserById, getAllUsers } from "./services/userService";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -46,6 +47,38 @@ export const applyJob = functions.https.onRequest(async (req, res) => {
     });
 
     res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
+
+// ✅ Register user
+export const registerUser = functions.https.onRequest(async (req, res) => {
+  try {
+    const user = await addUser(req.body);
+    res.json(user);
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
+
+// ✅ Get user by ID
+export const fetchUser = functions.https.onRequest(async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) return res.status(400).send("Missing user ID");
+    const user = await getUserById(id as string);
+    res.json(user);
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
+
+// ✅ Get all users
+export const fetchUsers = functions.https.onRequest(async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    res.json(users);
   } catch (error: any) {
     res.status(500).send(error.message);
   }
