@@ -1,13 +1,14 @@
-// firebase.ts
-import admin from "firebase-admin";
+// src/firebase.ts
+import * as admin from "firebase-admin";
+import * as path from "path";
 
-// Prevent re-initializing when hot-reloading
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.applicationDefault(), 
-    // or use serviceAccount if running locally with JSON
+    credential: admin.credential.cert(
+      path.resolve(__dirname, "serviceAccountKey.json")
+    ),
   });
 }
 
-// This is the Firestore instance (your "db")
 export const firestore = admin.firestore();
+export default admin;

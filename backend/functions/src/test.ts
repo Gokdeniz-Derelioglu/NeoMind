@@ -12,7 +12,8 @@ async function runTests() {
       name: "Alice Example",
       email: "alice@example.com",
       createdAt: Timestamp.now(),
-      
+      role: "candidate",
+      id: '2', 
     };
     const addedUser = await addUser(newUser);
     console.log("✅ User added with auto ID:", addedUser);
