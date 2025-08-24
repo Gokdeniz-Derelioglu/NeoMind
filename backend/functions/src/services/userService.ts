@@ -1,9 +1,10 @@
 // services/userService.ts
 import * as admin from "firebase-admin";
 import { User } from "../models/User";
+import { firestore } from "../firebase";
 
 // ✅ Firestore reference
-const db = admin.firestore();
+const db = firestore
 const usersRef = db.collection("users");
 
 // ✅ Add new user (auto-generated ID)
