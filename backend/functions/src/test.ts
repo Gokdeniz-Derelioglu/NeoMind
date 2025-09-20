@@ -1,8 +1,10 @@
 // test.ts
 import { addUser, getUserById, getAllUsers, registerUser } from "./services/userService";
-import { addJob, getJobs } from "./services/jobService"; // <-- make sure this exists
+import { addJob, getJobs } from "./services/jobService";
 import { User } from "./models/User";
 import { Job } from "./models/Job";
+import { CV } from "./models/CV";
+import { addCV, joinCv, updateCV } from "./services/cvService";
 import { Timestamp } from "firebase-admin/firestore";
 
 async function runTests() {
@@ -83,6 +85,29 @@ async function runTests() {
     // Fetch all jobs to verify
     const allJobs = await getJobs();
     console.log("✅ All jobs in DB:", allJobs);
+
+    // ------------------ CV TESTS ------------------
+    console.log("🚀 Starting Firestore CV tests...");
+
+    // 1️⃣ Add a CV for the first user
+    const newCV: CV = {
+      userId: addedUser.id!,
+      contents: "Alice's professional CV: experienced frontend developer skilled in React and TypeScript",
+      createdAt: Timestamp.now(),
+    };
+
+    const addedCV: CV = await addCV(newCV, addedUser as User, addedUser.id!);
+    console.log("✅ CV added:", addedCV);
+
+    // 2️⃣ Join the CV to the user
+    await joinCv(addedCV.id!, addedUser.id!);
+    console.log(`✅ CV ${addedCV.id} joined to user ${addedUser.id}`);
+
+    // 3️⃣ Update the CV
+    const updateResult = await updateCV(addedCV.id!, {
+      contents: "Updated CV: added more React and TypeScript experience",
+    });
+    console.log("✅ CV updated:", updateResult);
 
   } catch (err) {
     console.error("❌ Test failed:", err);
