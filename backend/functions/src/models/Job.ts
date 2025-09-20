@@ -2,6 +2,7 @@
 
 export interface Job {
   id?: string;
+  company: string;
   name: string;
   logo: string; //emoji
   industry: string;

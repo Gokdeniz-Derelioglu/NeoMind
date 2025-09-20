@@ -36,6 +36,7 @@ async function runTests() {
 
     const jobsToAdd: Job[] = [
       {
+        company: "TechCorp",
         name: "Frontend Engineer",
         logo: "💻",
         industry: "Software",
@@ -54,6 +55,7 @@ async function runTests() {
         createdAt: new Date(),
       },
       {
+        company: "InnovateX",
         name: "Backend Engineer",
         logo: "🖥️",
         industry: "Software",
