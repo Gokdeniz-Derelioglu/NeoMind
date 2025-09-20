@@ -63,14 +63,14 @@ export const registerUser = functions.https.onRequest(async (req, res) => {
 });
 
 // ✅ Get user by ID
-export const fetchUser = functions.https.onRequest(async (req, res) => {
+export const fetchUser = functions.https.onRequest(async (req, res): Promise<void> => {
   try {
     const { id } = req.query;
-    if (!id) return res.status(400).send("Missing user ID");
-    const user = await getUserById(id as string);
+    if (!id) { res.status(400).send("Missing user ID"); return; } // <-- no returning Response
+    const user = await getUserById(String(id));
     res.json(user);
   } catch (error: any) {
-    res.status(500).send(error.message);
+    res.status(500).send(error?.message ?? "Internal error");
   }
 });
 

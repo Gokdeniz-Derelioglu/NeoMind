@@ -1,7 +1,14 @@
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { Routes, Route, Link, useNavigate,useLocation,Navigate } from "react-router-dom";
 import { useSpring, animated, config } from "@react-spring/web";
 import React, { useState, useEffect, useRef } from "react";
 import { useDrag } from "react-use-gesture";
+
+import {
+  onAuthStateChanged, signOut,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword,
+} from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "./firebase";
 
 const companies = [
   { id: 1, name: "Company A", description: "A great place to work." },
@@ -22,7 +29,8 @@ const navButtonStyle = {
   transition: "background-color 0.3s ease",
 };
 
-function Navbar() {
+/* ---------------- UI components (modified minimally) ---------------- */
+function Navbar({ user }) {
   return (
     <nav
       style={{
@@ -30,7 +38,7 @@ function Navbar() {
         top: 0,
         left: 0,
         right: 0,
-        width: "100%", // 100% of parent container (should be full viewport width)
+        width: "100%",
         height: 56,
         backgroundColor: "#2c3e50",
         color: "#ecf0f1",
@@ -41,9 +49,9 @@ function Navbar() {
         userSelect: "none",
         boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
         zIndex: 9999,
-        padding: "0 24px", // inner padding for content spacing
-        margin: 0, // ensure no margin
-        overflowX: "hidden", // prevent horizontal scroll
+        padding: "0 24px",
+        margin: 0,
+        overflowX: "hidden",
       }}
     >
       <Link
@@ -58,60 +66,56 @@ function Navbar() {
       >
         NeoMind
       </Link>
+
       <div style={{ display: "flex", alignItems: "center" }}>
-        <Link
-          to="/profile"
-          style={{
-            marginLeft: 12,
-            padding: "6px 14px",
-            borderRadius: 6,
-            backgroundColor: "transparent",
-            border: "none",
-            color: "#ecf0f1",
-            cursor: "pointer",
-            fontSize: 15,
-            fontWeight: 500,
-            textDecoration: "none",
-            display: "flex",
-            alignItems: "center",
-            userSelect: "none",
-          }}
-        >
-          Profile
-        </Link>
-        <button
-          onClick={() => alert("Logout clicked")}
-          style={{
-            marginLeft: 12,
-            padding: "6px 14px",
-            borderRadius: 6,
-            backgroundColor: "transparent",
-            border: "none",
-            color: "#ecf0f1",
-            cursor: "pointer",
-            fontSize: 15,
-            fontWeight: 500,
-            transition: "background-color 0.3s ease",
-            userSelect: "none",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#34495e")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-        >
-          Logout
-        </button>
+        {user && (
+          <Link
+            to="/profile"
+            style={{
+              ...navButtonStyle,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              userSelect: "none",
+            }}
+          >
+            Profile
+          </Link>
+        )}
+
+        {user ? (
+          <button
+            onClick={() => signOut(auth)}
+            style={navButtonStyle}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "#34495e")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            Logout
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            style={{ ...navButtonStyle, textDecoration: "none" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "#34495e")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            Login
+          </Link>
+        )}
       </div>
     </nav>
   );
 }
 
-
-
 function SwipeCard({ company, onSwipe }) {
-  // spring animation for drag & swipe
   const [props, api] = useSpring(() => ({
     x: 0,
     y: 0,
@@ -122,8 +126,8 @@ function SwipeCard({ company, onSwipe }) {
 
   const bind = useDrag(
     ({ active, movement: [mx], direction: [xDir], velocity }) => {
-      const trigger = velocity > 0.3; // velocity threshold for swipe
-      const dir = xDir < 0 ? -1 : 1; // swipe direction
+      const trigger = velocity > 0.3;
+      const dir = xDir < 0 ? -1 : 1;
 
       if (!active && trigger) {
         api.start({
@@ -162,8 +166,7 @@ function SwipeCard({ company, onSwipe }) {
         position: "relative",
         backgroundColor: "#d0f0e7",
         color: "#2c3e50",
-        fontFamily:
-          "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         cursor: "grab",
       }}
     >
@@ -173,10 +176,9 @@ function SwipeCard({ company, onSwipe }) {
   );
 }
 
-function Home() {
+function Home({ user }) {
   const [index, setIndex] = React.useState(0);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
-  const swipeDir = React.useRef(null);
 
   const [props, api] = useSpring(() => ({
     x: 0,
@@ -195,7 +197,6 @@ function Home() {
 
   const triggerSwipe = (dir) => {
     if (index >= companies.length) return;
-    swipeDir.current = dir;
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
       rot: dir === "right" ? 20 : -20,
@@ -212,7 +213,6 @@ function Home() {
     ({ active, movement: [mx], direction: [xDir], velocity }) => {
       const trigger = velocity > 0.3;
       const dir = xDir < 0 ? "left" : "right";
-
       if (!active && trigger) {
         triggerSwipe(dir);
       } else {
@@ -227,7 +227,7 @@ function Home() {
     { axis: "x" }
   );
 
-if (index >= companies.length) {
+  if (index >= companies.length) {
     return (
       <div
         style={{
@@ -239,7 +239,7 @@ if (index >= companies.length) {
           userSelect: "none",
         }}
       >
-        <Navbar />
+        <Navbar user={user} />
         <h2 style={{ marginTop: 80, fontWeight: 600, fontSize: 24 }}>
           That's all for now! Please check back later for more companies.
         </h2>
@@ -256,7 +256,7 @@ if (index >= companies.length) {
         userSelect: "none",
       }}
     >
-      <Navbar />
+      <Navbar user={user} />
       <div
         style={{
           flexGrow: 1,
@@ -265,7 +265,7 @@ if (index >= companies.length) {
           alignItems: "center",
           gap: 24,
           overflow: "hidden",
-          padding: "64px 16px", // increased vertical padding here!
+          padding: "64px 16px",
           boxSizing: "border-box",
         }}
       >
@@ -303,7 +303,6 @@ if (index >= companies.length) {
           </button>
         )}
 
-        {/* Card wrapper for vertical padding */}
         <div
           style={{
             paddingTop: 64,
@@ -342,7 +341,6 @@ if (index >= companies.length) {
           </animated.div>
         </div>
 
-        {/* Accept Button - Right */}
         {!isMobile && (
           <button
             onClick={() => triggerSwipe("right")}
@@ -376,7 +374,7 @@ if (index >= companies.length) {
   );
 }
 
-function Profile() {
+function Profile({ user }) {
   const navigate = useNavigate();
 
   return (
@@ -389,9 +387,16 @@ function Profile() {
         padding: 24,
       }}
     >
-      <Navbar />
+      <Navbar user={user} />
       <h1>Profile Page</h1>
-      <p>This is where user profile info would go.</p>
+      {user ? (
+        <>
+          <p><b>UID:</b> {user.uid}</p>
+          <p><b>Email:</b> {user.email}</p>
+        </>
+      ) : (
+        <p>Loading…</p>
+      )}
       <button
         onClick={() => navigate(-1)}
         style={{
@@ -411,11 +416,151 @@ function Profile() {
   );
 }
 
+/* ---------------- inline Login screen (email/password) ---------------- */
+function Login() {
+  const [mode, setMode] = React.useState("signin"); // 'signin' | 'signup'
+  const [firstName, setFirstName] = React.useState("");
+  const [lastName, setLastName]   = React.useState("");
+  const [email, setEmail]         = React.useState("");
+  const [password, setPassword]   = React.useState("");
+  const [error, setError]         = React.useState("");
+  const [busy, setBusy]           = React.useState(false);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/";
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(""); setBusy(true);
+    try {
+      if (mode === "signup") {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, "users", cred.user.uid), {
+          firstName, lastName, email, createdAt: serverTimestamp(),
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err?.message || "Authentication failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{
+      minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"#2c3e50", color:"#ecf0f1"
+    }}>
+      <form onSubmit={handleSubmit} style={{
+        width:360, background:"#34495e", padding:24, borderRadius:12,
+        boxShadow:"0 10px 20px rgba(0,0,0,0.2)"
+      }}>
+        <h2 style={{ marginTop: 0, textAlign: "center" }}>
+          {mode === "signup" ? "Create account" : "Log in"}
+        </h2>
+
+        {mode === "signup" && (
+          <>
+            <label>First name</label>
+            <input value={firstName} onChange={e=>setFirstName(e.target.value)} required
+              style={inputStyle}/>
+            <label>Last name</label>
+            <input value={lastName} onChange={e=>setLastName(e.target.value)} required
+              style={inputStyle}/>
+          </>
+        )}
+
+        <label>Email</label>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
+          style={inputStyle}/>
+
+        <label>Password</label>
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
+          style={inputStyle}/>
+
+        {error && <div style={{ color: "#ffb4b4", margin: "8px 0" }}>{error}</div>}
+
+        <button disabled={busy} type="submit" style={btnStyle}>
+          {busy ? "Please wait..." : (mode === "signup" ? "Sign up" : "Sign in")}
+        </button>
+
+        <div style={{ marginTop: 12, textAlign: "center" }}>
+          {mode === "signup" ? (
+            <span>Already have an account?{" "}
+              <button type="button" onClick={()=>setMode("signin")} style={linkBtn}>Sign in</button>
+            </span>
+          ) : (
+            <span>New here?{" "}
+              <button type="button" onClick={()=>setMode("signup")} style={linkBtn}>Create account</button>
+            </span>
+          )}
+        </div>
+
+        <div style={{ marginTop: 12, textAlign: "center", opacity: 0.8 }}>
+          <Link to="/" style={{ color: "#ecf0f1" }}>Back to home</Link>
+        </div>
+      </form>
+    </div>
+  );
+}
+const inputStyle = { width:"100%", margin:"6px 0 14px", padding:"10px 12px",
+  borderRadius:8, border:"1px solid #556", background:"#2c3e50", color:"#ecf0f1" };
+const btnStyle   = { width:"100%", padding:"10px 12px", borderRadius:8, border:"none",
+  background:"#1abc9c", color:"#ecf0f1", fontWeight:600, cursor:"pointer" };
+const linkBtn    = { background:"transparent", color:"#1abc9c", border:"none", cursor:"pointer" };
+
+/* ---------------- route guard ---------------- */
+function Protected({ user, children }) {
+  const location = useLocation();
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
+  return children;
+}
+
+/* ---------------- app root ---------------- */
 export default function App() {
+  const [user, setUser] = React.useState(null);
+  const [authReady, setAuthReady] = React.useState(false);
+
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthReady(true);
+    });
+    return () => unsub();
+  }, []);
+
+  if (!authReady) {
+    return (
+      <div style={{ padding: 24, color: "#ecf0f1", background: "#2c3e50" }}>
+        Loading…
+      </div>
+    );
+  }
+
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/profile" element={<Profile />} />
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <Protected user={user}>
+            <Home user={user} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <Protected user={user}>
+            <Profile user={user} />
+          </Protected>
+        }
+      />
+      <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
   );
 }
