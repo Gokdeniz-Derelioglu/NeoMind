@@ -53,6 +53,31 @@ export const updateUser = async (id: string, updates: Partial<User>) => {
   return { success: true };
 };
 
+// Increase the level of a skill in the user skill matrix or add it if not present
+export const increaseUserSkill = async (id: string, skill: string) => {
+  const userRef = usersRef.doc(id);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) throw new Error("User not found");
+
+  // Assume userDoc.data().skills is an array of { skill: string, level: number }
+  const skills: { skill: string; level: number }[] = userDoc.data()?.skills || [];
+  const skillIndex = skills.findIndex(s => s.skill === skill);
+
+  if (skillIndex === -1) {
+    // Add new skill with level 1
+    skills.push({ skill, level: 1 });
+  } else {
+    // Increase level by 1
+    skills[skillIndex].level += 1;
+  }
+
+  await userRef.update({
+    skills,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { success: true, skills };
+};
+
 // ✅ Delete user by ID
 export const deleteUser = async (id: string) => {
   await usersRef.doc(id).delete();
