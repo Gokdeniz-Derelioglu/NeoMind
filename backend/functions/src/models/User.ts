@@ -7,7 +7,7 @@ export interface User {
   createdAt?: FirebaseFirestore.Timestamp;
   updatedAt?: FirebaseFirestore.Timestamp;
   location?: string; 
-  skills?: string[]; 
+  skills?: string[2][]; //matrix of string pairs? I hope it is... This is a preference list btw
   experience?: string;
   education?: string;
   employmentTypePreference?: "full-time" | "part-time" | "contract" | "internship";
