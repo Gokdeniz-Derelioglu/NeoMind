@@ -1,6 +1,7 @@
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
-import { useSpring, animated, config } from "@react-spring/web";
-import React from "react";
+
+import { Routes, Route } from "react-router-dom";
+import { useSpring, config } from "@react-spring/web";
+import React, { useState, useRef, useEffect } from "react";
 import { useDrag } from "react-use-gesture";
 import "./App.css";
 
@@ -12,14 +13,19 @@ import RightButton from "./components/RightButton";
 import MobileButtons from "./components/MobileButtons";
 import ProgressIndicator from "./components/ProgressIndicator";
 import NoMoreJobs from "./components/NoMoreJobs";
+import UserProfile from "./components/UserProfile";
+
+// Import context
+import { JobProvider, useJobContext } from "./context/JobContext";
 
 // Import data
-import { jobOpenings } from "./data/jobOpenings";
+import { indeedJobs } from "./data/indeedJobs";
 
 function Home() {
-  const [index, setIndex] = React.useState(0);
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
-  const swipeDir = React.useRef(null);
+  const [index, setIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const swipeDir = useRef(null);
+  const { addAppliedJob } = useJobContext();
 
   const [props, api] = useSpring(() => ({
     x: 0,
@@ -28,7 +34,7 @@ function Home() {
     config: config.stiff,
   }));
 
-  React.useEffect(() => {
+  useEffect(() => {
     function handleResize() {
       setIsMobile(window.innerWidth < 768);
     }
@@ -37,7 +43,7 @@ function Home() {
   }, []);
 
   const triggerSwipe = (dir) => {
-    if (index >= jobOpenings.length) return;
+    if (index >= indeedJobs.length) return;
     swipeDir.current = dir;
     
     // Add visual feedback based on swipe direction
@@ -47,6 +53,11 @@ function Home() {
       card.style.boxShadow = dir === "right" 
         ? "0 20px 40px rgba(81, 207, 102, 0.4)" 
         : "0 20px 40px rgba(255, 107, 107, 0.4)";
+    }
+    
+    // If accepted (right swipe), add to applied jobs
+    if (dir === "right") {
+      addAppliedJob(indeedJobs[index]);
     }
     
     api.start({
@@ -80,7 +91,7 @@ function Home() {
     { axis: "x" }
   );
 
-  if (index >= jobOpenings.length) {
+  if (index >= indeedJobs.length) {
     return <NoMoreJobs />;
   }
 
@@ -95,7 +106,7 @@ function Home() {
     >
       <Navbar />
       
-      <ProgressIndicator currentIndex={index} totalJobs={jobOpenings.length} />
+            <ProgressIndicator currentIndex={index} totalJobs={indeedJobs.length} />
       
       <div
         style={{
@@ -129,12 +140,12 @@ function Home() {
             <MobileButtons triggerSwipe={triggerSwipe} />
           )}
           
-          <JobCard 
-            job={jobOpenings[index]}
-            bind={bind}
-            props={props}
-            isMobile={isMobile}
-          />
+                <JobCard
+                  job={indeedJobs[index]}
+                  bind={bind}
+                  props={props}
+                  isMobile={isMobile}
+                />
         </div>
 
         {/* Desktop Right Button */}
@@ -149,45 +160,35 @@ function Home() {
 }
 
 function Profile() {
-  const navigate = useNavigate();
+  const { appliedJobs, removeAppliedJob } = useJobContext();
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#2c3e50",
-        color: "#ecf0f1",
+        backgroundColor: "#f8f9fa",
         fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        padding: 24,
+        padding: "20px 0",
       }}
     >
       <Navbar />
-      <h1>Profile Page</h1>
-      <p>This is where user profile info would go.</p>
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          marginTop: 20,
-          padding: "10px 16px",
-          fontSize: 16,
-          borderRadius: 8,
-          border: "none",
-          backgroundColor: "#1abc9c",
-          color: "#ecf0f1",
-          cursor: "pointer",
-        }}
-      >
-        Back
-      </button>
+      <div style={{ padding: "0 20px" }}>
+        <UserProfile 
+          appliedJobs={appliedJobs} 
+          onJobRemove={removeAppliedJob}
+        />
+      </div>
     </div>
   );
 }
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/profile" element={<Profile />} />
-    </Routes>
+    <JobProvider>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/profile" element={<Profile />} />
+      </Routes>
+    </JobProvider>
   );
 }

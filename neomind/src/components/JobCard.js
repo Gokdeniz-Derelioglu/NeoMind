@@ -148,14 +148,50 @@ const JobCard = ({ job, bind, props, isMobile }) => {
           </div>
         </div>
 
-        <div style={{ 
-          textAlign: "right", 
-          fontSize: 12, 
-          color: "#6c757d",
-          fontStyle: "italic"
-        }}>
-          Posted {job.posted}
-        </div>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 20,
+                paddingTop: 16,
+                borderTop: "1px solid #e9ecef"
+              }}>
+                <div style={{
+                  fontSize: 12,
+                  color: "#6c757d",
+                  fontStyle: "italic"
+                }}>
+                  Posted {job.posted}
+                </div>
+                <a
+                  href={job.applyLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    backgroundColor: "#1abc9c",
+                    color: "#ffffff",
+                    padding: "8px 16px",
+                    borderRadius: 20,
+                    textDecoration: "none",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    transition: "all 0.3s ease",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#16a085";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#1abc9c";
+                    e.currentTarget.style.transform = "translateY(0)";
+                  }}
+                >
+                  Apply Now →
+                </a>
+              </div>
       </div>
     </animated.div>
   );
