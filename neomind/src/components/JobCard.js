@@ -2,9 +2,8 @@ import React from "react";
 import { animated } from "@react-spring/web";
 
 const JobCard = ({ job, bind, props, isMobile }) => {
-  if (!job) return null; // ✅ prevent crash if job is undefined
+  if (!job) return null;
 
-  const company = job.company || {};
   const skills = job.skills || [];
   const benefits = job.benefits || [];
 
@@ -41,20 +40,20 @@ const JobCard = ({ job, bind, props, isMobile }) => {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 32, marginRight: 16 }}>{company.logo || "🏢"}</span>
+          <span style={{ fontSize: 32, marginRight: 16 }}>{job.logo || "🏢"}</span>
           <div>
             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#2c3e50" }}>
-              {company.name || "Unknown Company"}
+              {job.company || "Unknown Company"}
             </h3>
             <p style={{ margin: "4px 0 0 0", fontSize: 14, color: "#6c757d" }}>
-              {company.industry || "Industry N/A"} • {company.size || "Size N/A"}
+              Industry: {job.industry || "Industry N/A"} • Size: {job.size || "Size N/A"} employees
             </p>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 14 }}>
-          <span style={{ color: "#6c757d" }}>📍 {company.location || "Remote"}</span>
-          <span style={{ color: "#6c757d" }}>⭐ {company.rating ?? "-"}</span>
-          <span style={{ color: "#6c757d" }}>📅 {company.founded || "N/A"}</span>
+          <span style={{ color: "#6c757d" }}>📍 {job.location || "N/A"}</span>
+          <span style={{ color: "#6c757d" }}>⭐ {job.rating ?? "N/A"}</span>
+          <span style={{ color: "#6c757d" }}>📅 {job.founded || "N/A"}</span>
         </div>
       </div>
 
@@ -64,45 +63,43 @@ const JobCard = ({ job, bind, props, isMobile }) => {
           {job.position || "Job Title N/A"}
         </h2>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-            <span
-              style={{
-                backgroundColor: "#e3f2fd",
-                color: "#1976d2",
-                padding: "6px 12px",
-                borderRadius: 20,
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              💰 {job.salary || "N/A"}
-            </span>
-            <span
-              style={{
-                backgroundColor: "#f3e5f5",
-                color: "#7b1fa2",
-                padding: "6px 12px",
-                borderRadius: 20,
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              ⏰ {job.type || "N/A"}
-            </span>
-            <span
-              style={{
-                backgroundColor: "#e8f5e8",
-                color: "#388e3c",
-                padding: "6px 12px",
-                borderRadius: 20,
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              📚 {job.experience?.join("–") || "0–0"}
-            </span>
-          </div>
+        <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
+          <span
+            style={{
+              backgroundColor: "#e3f2fd",
+              color: "#1976d2",
+              padding: "6px 12px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            💰 {job.salary || "N/A"}
+          </span>
+          <span
+            style={{
+              backgroundColor: "#f3e5f5",
+              color: "#7b1fa2",
+              padding: "6px 12px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            ⏰ {job.type || "N/A"}
+          </span>
+          <span
+            style={{
+              backgroundColor: "#e8f5e8",
+              color: "#388e3c",
+              padding: "6px 12px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            📚 {job.experience?.join("–") || "0–0"}
+          </span>
         </div>
 
         <p style={{ fontSize: 16, lineHeight: 1.6, color: "#495057", marginBottom: 20 }}>
@@ -112,7 +109,14 @@ const JobCard = ({ job, bind, props, isMobile }) => {
         {/* Skills */}
         {skills.length > 0 && (
           <div style={{ marginBottom: 20 }}>
-            <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#2c3e50" }}>
+            <h4
+              style={{
+                margin: "0 0 12px 0",
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#2c3e50",
+              }}
+            >
               Required Skills:
             </h4>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -139,7 +143,14 @@ const JobCard = ({ job, bind, props, isMobile }) => {
         {/* Benefits */}
         {benefits.length > 0 && (
           <div style={{ marginBottom: 20 }}>
-            <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#2c3e50" }}>
+            <h4
+              style={{
+                margin: "0 0 12px 0",
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#2c3e50",
+              }}
+            >
               Benefits:
             </h4>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -162,14 +173,7 @@ const JobCard = ({ job, bind, props, isMobile }) => {
           </div>
         )}
 
-        <div
-          style={{
-            textAlign: "right",
-            fontSize: 12,
-            color: "#6c757d",
-            fontStyle: "italic",
-          }}
-        >
+        <div style={{ textAlign: "right", fontSize: 12, color: "#6c757d", fontStyle: "italic" }}>
           Posted {job.posted || "N/A"}
         </div>
       </div>
