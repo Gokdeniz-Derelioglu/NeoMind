@@ -5,7 +5,7 @@ import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
 import "./App.css";
 
-// --- Good frontend components ---
+// --- Components ---
 import Navbar from "./components/Navbar";
 import JobCard from "./components/JobCard";
 import LeftButton from "./components/LeftButton";
@@ -13,9 +13,9 @@ import RightButton from "./components/RightButton";
 import MobileButtons from "./components/MobileButtons";
 import ProgressIndicator from "./components/ProgressIndicator";
 import NoMoreJobs from "./components/NoMoreJobs";
-import { jobOpenings } from "./data/jobOpenings";
+import { fetchJobOpenings } from "./data/jobOpenings";
 
-// --- Firebase auth pieces (from working version) ---
+// --- Firebase ---
 import {
   onAuthStateChanged,
   signOut,
@@ -31,12 +31,34 @@ function Protected({ user, children }) {
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
 }
 
-/* ---------- good UI Home, but now auth-aware via Navbar props ---------- */
+/* ---------- Home ---------- */
 function Home({ user, onLogout }) {
+  const [jobOpenings, setJobOpenings] = React.useState([]); // <-- FIX: added state
   const [index, setIndex] = React.useState(0);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
-  const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
 
+  const [props, api] = useSpring(() => ({
+    x: 0,
+    rot: 0,
+    scale: 1,
+    config: config.stiff,
+  }));
+
+  // Fetch jobs
+  React.useEffect(() => {
+    async function loadJobs() {
+      try {
+        const jobs = await fetchJobOpenings();
+        setJobOpenings(jobs || []);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+        setJobOpenings([]);
+      }
+    }
+    loadJobs();
+  }, []);
+
+  // Resize check
   React.useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", onResize);
@@ -45,7 +67,6 @@ function Home({ user, onLogout }) {
 
   const triggerSwipe = (dir) => {
     if (index >= jobOpenings.length) return;
-    // optional visual feedback can live inside JobCard; kept minimal here
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
       rot: dir === "right" ? 20 : -20,
@@ -75,12 +96,22 @@ function Home({ user, onLogout }) {
     { axis: "x" }
   );
 
-  if (index >= jobOpenings.length) return <NoMoreJobs />;
+  if (jobOpenings.length === 0) {
+    return <div>Loading jobs...</div>;
+  }
+
+  if (index >= jobOpenings.length) {
+    return <NoMoreJobs />;
+  }
+
+  const currentJob = jobOpenings[index];
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", userSelect: "none" }}>
       <Navbar user={user} onLogout={onLogout} />
+
       <ProgressIndicator currentIndex={index} totalJobs={jobOpenings.length} />
+
       <div
         style={{
           flexGrow: 1,
@@ -95,9 +126,14 @@ function Home({ user, onLogout }) {
       >
         {!isMobile && <LeftButton triggerSwipe={triggerSwipe} />}
 
-        <div style={{ paddingTop: 64, paddingBottom: 64, maxWidth: 480, width: "90vw", boxSizing: "content-box" }}>
+        <div style={{ paddingTop: 64, paddingBottom: 64, maxWidth: 480, width: "90vw" }}>
           {isMobile && <MobileButtons triggerSwipe={triggerSwipe} />}
-          <JobCard job={jobOpenings[index]} bind={bind} props={props} isMobile={isMobile} />
+
+          {currentJob ? (
+            <JobCard job={currentJob} bind={bind} props={props} isMobile={isMobile} />
+          ) : (
+            <NoMoreJobs />
+          )}
         </div>
 
         {!isMobile && <RightButton triggerSwipe={triggerSwipe} />}
@@ -106,7 +142,7 @@ function Home({ user, onLogout }) {
   );
 }
 
-/* ---------- Profile (shows real user) ---------- */
+/* ---------- Profile ---------- */
 function Profile({ user, onLogout }) {
   const navigate = useNavigate();
   return (
@@ -123,13 +159,21 @@ function Profile({ user, onLogout }) {
       )}
       <button
         onClick={() => navigate(-1)}
-        style={{ marginTop: 20, padding: "10px 16px", borderRadius: 8, border: "none", background: "#1abc9c", color: "#ecf0f1" }}
+        style={{
+          marginTop: 20,
+          padding: "10px 16px",
+          borderRadius: 8,
+          border: "none",
+          background: "#1abc9c",
+          color: "#ecf0f1",
+        }}
       >
         Back
       </button>
     </div>
   );
 }
+
 
 /* ---------- Inline Login page (from your working version) ---------- */
 function Login() {
@@ -208,7 +252,7 @@ function Login() {
   );
 }
 
-/* ---------- App root: tracks auth, protects routes, wires logout ---------- */
+/* ---------- App root ---------- */
 export default function App() {
   const [user, setUser] = React.useState(null);
   const [authReady, setAuthReady] = React.useState(false);
