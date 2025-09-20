@@ -41,3 +41,20 @@ export const registerUser = async (uid: string, email: string, name: string) => 
   });
   return { success: true, uid };
 };
+
+// ✅ Update user details
+// To use function, pass a partial User object with fields to be updated, and a partial User object is created by using TypeScript's Partial<T> utility. 
+export const updateUser = async (id: string, updates: Partial<User>) => {
+  const userRef = usersRef.doc(id);
+  await userRef.update({
+    ...updates,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { success: true };
+};
+
+// ✅ Delete user by ID
+export const deleteUser = async (id: string) => {
+  await usersRef.doc(id).delete();
+  return { success: true };
+};
