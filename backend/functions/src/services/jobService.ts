@@ -1,7 +1,25 @@
+// services/jobService.ts
 import { firestore } from "../firebase";
 import { Job } from "../models/Job";
 
 const jobsCollection = firestore.collection("jobs");
+
+// ✅ Add a new job (auto-ID)
+export async function addJob(job: Job): Promise<Job> {
+  const docRef = await jobsCollection.add({
+    ...job,
+    createdAt: job.createdAt || new Date(),
+  });
+  return { id: docRef.id, ...job };
+}
+
+// ✅ Update an existing job by ID
+export async function updateJob(id: string, job: Partial<Job>): Promise<void> {
+  await jobsCollection.doc(id).update({
+    ...job,
+    updatedAt: new Date(),
+  });
+}
 
 // ✅ Get all jobs (optionally limited)
 export async function getJobs(limit = 20): Promise<Job[]> {
@@ -33,7 +51,9 @@ export async function getJobsByField(field: string): Promise<Job[]> {
 }
 
 // ✅ Filter jobs by type
-export async function getJobsByType(type: "full-time" | "part-time" | "internship"): Promise<Job[]> {
+export async function getJobsByType(
+  type: "full-time" | "part-time" | "internship"
+): Promise<Job[]> {
   const snapshot = await jobsCollection.where("type", "==", type).get();
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
 }
@@ -43,7 +63,7 @@ export async function filterJobs(filters: {
   region?: string;
   field?: string;
   type?: "full-time" | "part-time" | "internship";
-  title?: string; // Firestore doesn’t support contains queries easily → we use "==" or need external search
+  title?: string; // Firestore doesn’t support contains queries easily → we filter in-memory
 }): Promise<Job[]> {
   let query: FirebaseFirestore.Query = jobsCollection;
 
@@ -55,10 +75,10 @@ export async function filterJobs(filters: {
 
   let jobs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
 
-  // 🔎 title filter: since Firestore has no LIKE, we filter in-memory
+  // 🔎 Title filter: in-memory since Firestore doesn't support LIKE
   if (filters.title) {
     const titleLower = filters.title.toLowerCase();
-    jobs = jobs.filter(job => job.title.toLowerCase().includes(titleLower));
+    jobs = jobs.filter(job => job.name.toLowerCase().includes(titleLower));
   }
 
   return jobs;

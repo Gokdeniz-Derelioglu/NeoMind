@@ -2,13 +2,20 @@
 
 export interface Job {
   id?: string;
-  title: string;
-  company: string;
-  description: string;
-  requirements: string[];
-  createdAt?: Date;
+  name: string;
+  logo: string; //emoji
+  industry: string;
+  size: string; //num of employees
   location?: string;
-  salaryRange?: string;
-  employmentType?: "full-time" | "part-time" | "contract" | "internship";
+  rating?: number; //1-5 which is determined by the number of right swipes by all users
+  founded: number;
+  position: string;
+  salary: string;
+  type?: "full-time" | "part-time" | "contract" | "internship";
+  experience: number[]; //list of two numbers ig  
   skills?: string[];
+  description: string;
+  benefits?: string[];
+  posted: string; //how long ago it was posted
+  createdAt?: Date;
 }
