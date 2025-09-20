@@ -2,6 +2,12 @@ import React from "react";
 import { animated } from "@react-spring/web";
 
 const JobCard = ({ job, bind, props, isMobile }) => {
+  if (!job) return null; // ✅ prevent crash if job is undefined
+
+  const company = job.company || {};
+  const skills = job.skills || [];
+  const benefits = job.benefits || [];
+
   return (
     <animated.div
       {...bind()}
@@ -27,134 +33,144 @@ const JobCard = ({ job, bind, props, isMobile }) => {
       }}
     >
       {/* Company Header */}
-      <div style={{
-        backgroundColor: "#f8f9fa",
-        padding: "20px 24px",
-        borderBottom: "1px solid #e9ecef"
-      }}>
+      <div
+        style={{
+          backgroundColor: "#f8f9fa",
+          padding: "20px 24px",
+          borderBottom: "1px solid #e9ecef",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 32, marginRight: 16 }}>{job.company.logo}</span>
+          <span style={{ fontSize: 32, marginRight: 16 }}>{company.logo || "🏢"}</span>
           <div>
             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#2c3e50" }}>
-              {job.company.name}
+              {company.name || "Unknown Company"}
             </h3>
             <p style={{ margin: "4px 0 0 0", fontSize: 14, color: "#6c757d" }}>
-              {job.company.industry} • {job.company.size}
+              {company.industry || "Industry N/A"} • {company.size || "Size N/A"}
             </p>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 14 }}>
-          <span style={{ color: "#6c757d" }}>📍 {job.company.location}</span>
-          <span style={{ color: "#6c757d" }}>⭐ {job.company.rating}</span>
-          <span style={{ color: "#6c757d" }}>📅 {job.company.founded}</span>
+          <span style={{ color: "#6c757d" }}>📍 {company.location || "Remote"}</span>
+          <span style={{ color: "#6c757d" }}>⭐ {company.rating ?? "-"}</span>
+          <span style={{ color: "#6c757d" }}>📅 {company.founded || "N/A"}</span>
         </div>
       </div>
 
       {/* Job Details */}
       <div style={{ padding: "24px" }}>
-        <h2 style={{ 
-          margin: "0 0 16px 0", 
-          fontWeight: 700, 
-          fontSize: 24,
-          color: "#2c3e50"
-        }}>
-          {job.position}
+        <h2 style={{ margin: "0 0 16px 0", fontWeight: 700, fontSize: 24, color: "#2c3e50" }}>
+          {job.position || "Job Title N/A"}
         </h2>
-        
+
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-            <span style={{ 
-              backgroundColor: "#e3f2fd", 
-              color: "#1976d2", 
-              padding: "6px 12px", 
-              borderRadius: 20, 
-              fontSize: 12, 
-              fontWeight: 600 
-            }}>
-              💰 {job.salary}
+            <span
+              style={{
+                backgroundColor: "#e3f2fd",
+                color: "#1976d2",
+                padding: "6px 12px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              💰 {job.salary || "N/A"}
             </span>
-            <span style={{ 
-              backgroundColor: "#f3e5f5", 
-              color: "#7b1fa2", 
-              padding: "6px 12px", 
-              borderRadius: 20, 
-              fontSize: 12, 
-              fontWeight: 600 
-            }}>
-              ⏰ {job.type}
+            <span
+              style={{
+                backgroundColor: "#f3e5f5",
+                color: "#7b1fa2",
+                padding: "6px 12px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              ⏰ {job.type || "N/A"}
             </span>
-            <span style={{ 
-              backgroundColor: "#e8f5e8", 
-              color: "#388e3c", 
-              padding: "6px 12px", 
-              borderRadius: 20, 
-              fontSize: 12, 
-              fontWeight: 600 
-            }}>
-              📚 {job.experience}
+            <span
+              style={{
+                backgroundColor: "#e8f5e8",
+                color: "#388e3c",
+                padding: "6px 12px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              📚 {job.experience?.join("–") || "0–0"}
             </span>
           </div>
         </div>
 
-        <p style={{ 
-          fontSize: 16, 
-          lineHeight: 1.6, 
-          color: "#495057",
-          marginBottom: 20 
-        }}>
-          {job.description}
+        <p style={{ fontSize: 16, lineHeight: 1.6, color: "#495057", marginBottom: 20 }}>
+          {job.description || "No description provided."}
         </p>
 
         {/* Skills */}
-        <div style={{ marginBottom: 20 }}>
-          <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#2c3e50" }}>
-            Required Skills:
-          </h4>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {job.skills.map((skill, idx) => (
-              <span key={idx} style={{
-                backgroundColor: "#f8f9fa",
-                color: "#495057",
-                padding: "6px 12px",
-                borderRadius: 16,
-                fontSize: 12,
-                fontWeight: 500,
-                border: "1px solid #e9ecef"
-              }}>
-                {skill}
-              </span>
-            ))}
+        {skills.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#2c3e50" }}>
+              Required Skills:
+            </h4>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {skills.map((skill, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    color: "#495057",
+                    padding: "6px 12px",
+                    borderRadius: 16,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    border: "1px solid #e9ecef",
+                  }}
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Benefits */}
-        <div style={{ marginBottom: 20 }}>
-          <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#2c3e50" }}>
-            Benefits:
-          </h4>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {job.benefits.slice(0, 4).map((benefit, idx) => (
-              <span key={idx} style={{
-                backgroundColor: "#fff3e0",
-                color: "#f57c00",
-                padding: "4px 10px",
-                borderRadius: 12,
-                fontSize: 11,
-                fontWeight: 500
-              }}>
-                ✨ {benefit}
-              </span>
-            ))}
+        {benefits.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#2c3e50" }}>
+              Benefits:
+            </h4>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {benefits.slice(0, 4).map((benefit, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    backgroundColor: "#fff3e0",
+                    color: "#f57c00",
+                    padding: "4px 10px",
+                    borderRadius: 12,
+                    fontSize: 11,
+                    fontWeight: 500,
+                  }}
+                >
+                  ✨ {benefit}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div style={{ 
-          textAlign: "right", 
-          fontSize: 12, 
-          color: "#6c757d",
-          fontStyle: "italic"
-        }}>
-          Posted {job.posted}
+        <div
+          style={{
+            textAlign: "right",
+            fontSize: 12,
+            color: "#6c757d",
+            fontStyle: "italic",
+          }}
+        >
+          Posted {job.posted || "N/A"}
         </div>
       </div>
     </animated.div>
