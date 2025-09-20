@@ -7,4 +7,8 @@ export interface Job {
   description: string;
   requirements: string[];
   createdAt?: Date;
+  location?: string;
+  salaryRange?: string;
+  employmentType?: "full-time" | "part-time" | "contract" | "internship";
+  skills?: string[];
 }
