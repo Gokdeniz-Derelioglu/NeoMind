@@ -36,3 +36,68 @@
     transform: rotate(360deg);
   }
 }
+
+/* Custom styles for job cards */
+.job-card {
+  position: relative;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.job-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.25) !important;
+}
+
+/* Smooth transitions for all interactive elements */
+button, .job-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .job-card {
+    margin: 0 16px;
+  }
+}
+
+/* Animation for card entrance */
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.job-card {
+  animation: cardEntrance 0.5s ease-out;
+}
+
+/* Hover effects for skill and benefit tags */
+.job-card span[style*="background-color: #f8f9fa"]:hover,
+.job-card span[style*="background-color: #fff3e0"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
