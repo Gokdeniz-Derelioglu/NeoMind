@@ -1,7 +1,21 @@
+// src/components/Navbar.js
 import React from "react";
 import { Link } from "react-router-dom";
 
-const Navbar = () => {
+const navButtonStyle = {
+  marginLeft: 12,
+  padding: "6px 14px",
+  borderRadius: 6,
+  backgroundColor: "transparent",
+  border: "none",
+  color: "#ecf0f1",
+  cursor: "pointer",
+  fontSize: 15,
+  fontWeight: 500,
+  transition: "background-color 0.3s ease",
+};
+
+export default function Navbar({ user, onLogout }) {
   return (
     <nav
       style={{
@@ -37,54 +51,51 @@ const Navbar = () => {
       >
         NeoMind
       </Link>
+
       <div style={{ display: "flex", alignItems: "center" }}>
-        <Link
-          to="/profile"
-          style={{
-            marginLeft: 12,
-            padding: "6px 14px",
-            borderRadius: 6,
-            backgroundColor: "transparent",
-            border: "none",
-            color: "#ecf0f1",
-            cursor: "pointer",
-            fontSize: 15,
-            fontWeight: 500,
-            textDecoration: "none",
-            display: "flex",
-            alignItems: "center",
-            userSelect: "none",
-          }}
-        >
-          Profile
-        </Link>
-        <button
-          onClick={() => alert("Logout clicked")}
-          style={{
-            marginLeft: 12,
-            padding: "6px 14px",
-            borderRadius: 6,
-            backgroundColor: "transparent",
-            border: "none",
-            color: "#ecf0f1",
-            cursor: "pointer",
-            fontSize: 15,
-            fontWeight: 500,
-            transition: "background-color 0.3s ease",
-            userSelect: "none",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#34495e")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-        >
-          Logout
-        </button>
+        {user && (
+          <Link
+            to="/profile"
+            style={{
+              ...navButtonStyle,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              userSelect: "none",
+            }}
+          >
+            Profile
+          </Link>
+        )}
+
+        {user ? (
+          <button
+            onClick={onLogout}
+            style={navButtonStyle}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "#34495e")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            Logout
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            style={{ ...navButtonStyle, textDecoration: "none" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "#34495e")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            Login
+          </Link>
+        )}
       </div>
     </nav>
   );
-};
-
-export default Navbar;
+}

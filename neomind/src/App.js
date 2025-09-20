@@ -1,10 +1,11 @@
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
-import { useSpring, animated, config } from "@react-spring/web";
+// src/App.js
 import React from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate, Link } from "react-router-dom";
+import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
 import "./App.css";
 
-// Import components
+// --- Good frontend components ---
 import Navbar from "./components/Navbar";
 import JobCard from "./components/JobCard";
 import LeftButton from "./components/LeftButton";
@@ -12,43 +13,39 @@ import RightButton from "./components/RightButton";
 import MobileButtons from "./components/MobileButtons";
 import ProgressIndicator from "./components/ProgressIndicator";
 import NoMoreJobs from "./components/NoMoreJobs";
-
-// Import data
 import { jobOpenings } from "./data/jobOpenings";
 
-function Home() {
+// --- Firebase auth pieces (from working version) ---
+import {
+  onAuthStateChanged,
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "./firebase";
+
+/* ---------- route guard ---------- */
+function Protected({ user, children }) {
+  const location = useLocation();
+  return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
+}
+
+/* ---------- good UI Home, but now auth-aware via Navbar props ---------- */
+function Home({ user, onLogout }) {
   const [index, setIndex] = React.useState(0);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
-  const swipeDir = React.useRef(null);
-
-  const [props, api] = useSpring(() => ({
-    x: 0,
-    rot: 0,
-    scale: 1,
-    config: config.stiff,
-  }));
+  const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
 
   React.useEffect(() => {
-    function handleResize() {
-      setIsMobile(window.innerWidth < 768);
-    }
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const triggerSwipe = (dir) => {
     if (index >= jobOpenings.length) return;
-    swipeDir.current = dir;
-    
-    // Add visual feedback based on swipe direction
-    const card = document.querySelector('.job-card');
-    if (card) {
-      card.style.border = dir === "right" ? "4px solid #51cf66" : "4px solid #ff6b6b";
-      card.style.boxShadow = dir === "right" 
-        ? "0 20px 40px rgba(81, 207, 102, 0.4)" 
-        : "0 20px 40px rgba(255, 107, 107, 0.4)";
-    }
-    
+    // optional visual feedback can live inside JobCard; kept minimal here
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
       rot: dir === "right" ? 20 : -20,
@@ -65,10 +62,8 @@ function Home() {
     ({ active, movement: [mx], direction: [xDir], velocity }) => {
       const trigger = velocity > 0.3;
       const dir = xDir < 0 ? "left" : "right";
-
-      if (!active && trigger) {
-        triggerSwipe(dir);
-      } else {
+      if (!active && trigger) triggerSwipe(dir);
+      else {
         api.start({
           x: active ? mx : 0,
           rot: active ? mx / 20 : 0,
@@ -80,23 +75,12 @@ function Home() {
     { axis: "x" }
   );
 
-  if (index >= jobOpenings.length) {
-    return <NoMoreJobs />;
-  }
+  if (index >= jobOpenings.length) return <NoMoreJobs />;
 
   return (
-    <div
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        userSelect: "none",
-      }}
-    >
-      <Navbar />
-      
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", userSelect: "none" }}>
+      <Navbar user={user} onLogout={onLogout} />
       <ProgressIndicator currentIndex={index} totalJobs={jobOpenings.length} />
-      
       <div
         style={{
           flexGrow: 1,
@@ -109,73 +93,37 @@ function Home() {
           boxSizing: "border-box",
         }}
       >
-        {/* Desktop Left Button */}
-        {!isMobile && (
-          <LeftButton triggerSwipe={triggerSwipe} />
-        )}
+        {!isMobile && <LeftButton triggerSwipe={triggerSwipe} />}
 
-        {/* Card wrapper for vertical padding */}
-        <div
-          style={{
-            paddingTop: 64,
-            paddingBottom: 64,
-            maxWidth: 480,
-            width: "90vw",
-            boxSizing: "content-box",
-          }}
-        >
-          {/* Mobile Action Buttons */}
-          {isMobile && (
-            <MobileButtons triggerSwipe={triggerSwipe} />
-          )}
-          
-          <JobCard 
-            job={jobOpenings[index]}
-            bind={bind}
-            props={props}
-            isMobile={isMobile}
-          />
+        <div style={{ paddingTop: 64, paddingBottom: 64, maxWidth: 480, width: "90vw", boxSizing: "content-box" }}>
+          {isMobile && <MobileButtons triggerSwipe={triggerSwipe} />}
+          <JobCard job={jobOpenings[index]} bind={bind} props={props} isMobile={isMobile} />
         </div>
 
-        {/* Desktop Right Button */}
-        {!isMobile && (
-          <RightButton triggerSwipe={triggerSwipe} />
-        )}
-
-
+        {!isMobile && <RightButton triggerSwipe={triggerSwipe} />}
       </div>
     </div>
   );
 }
 
-function Profile() {
+/* ---------- Profile (shows real user) ---------- */
+function Profile({ user, onLogout }) {
   const navigate = useNavigate();
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#2c3e50",
-        color: "#ecf0f1",
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        padding: 24,
-      }}
-    >
-      <Navbar />
-      <h1>Profile Page</h1>
-      <p>This is where user profile info would go.</p>
+    <div style={{ minHeight: "100vh", background: "#2c3e50", color: "#ecf0f1", padding: 24 }}>
+      <Navbar user={user} onLogout={onLogout} />
+      <h1>Profile</h1>
+      {user ? (
+        <>
+          <p><b>UID:</b> {user.uid}</p>
+          <p><b>Email:</b> {user.email}</p>
+        </>
+      ) : (
+        <p>Loading…</p>
+      )}
       <button
         onClick={() => navigate(-1)}
-        style={{
-          marginTop: 20,
-          padding: "10px 16px",
-          fontSize: 16,
-          borderRadius: 8,
-          border: "none",
-          backgroundColor: "#1abc9c",
-          color: "#ecf0f1",
-          cursor: "pointer",
-        }}
+        style={{ marginTop: 20, padding: "10px 16px", borderRadius: 8, border: "none", background: "#1abc9c", color: "#ecf0f1" }}
       >
         Back
       </button>
@@ -183,11 +131,122 @@ function Profile() {
   );
 }
 
+/* ---------- Inline Login page (from your working version) ---------- */
+function Login() {
+  const [mode, setMode] = React.useState("signin");
+  const [firstName, setFirstName] = React.useState("");
+  const [lastName, setLastName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  const navigate = useNavigate();
+  const from = useLocation().state?.from?.pathname || "/";
+
+  const inputStyle = { width: "100%", margin: "6px 0 14px", padding: "10px 12px", borderRadius: 8, border: "1px solid #556", background: "#2c3e50", color: "#ecf0f1" };
+  const btnStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "none", background: "#1abc9c", color: "#ecf0f1", fontWeight: 600, cursor: "pointer" };
+  const linkBtn = { background: "transparent", color: "#1abc9c", border: "none", cursor: "pointer" };
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(""); setBusy(true);
+    try {
+      if (mode === "signup") {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, "users", cred.user.uid), { firstName, lastName, email, createdAt: serverTimestamp() });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err?.message || "Authentication failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#2c3e50", color: "#ecf0f1" }}>
+      <form onSubmit={handleSubmit} style={{ width: 360, background: "#34495e", padding: 24, borderRadius: 12, boxShadow: "0 10px 20px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ marginTop: 0, textAlign: "center" }}>{mode === "signup" ? "Create account" : "Log in"}</h2>
+
+        {mode === "signup" && (
+          <>
+            <label>First name</label>
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required style={inputStyle} />
+            <label>Last name</label>
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} required style={inputStyle} />
+          </>
+        )}
+
+        <label>Email</label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
+
+        <label>Password</label>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={inputStyle} />
+
+        {error && <div style={{ color: "#ffb4b4", margin: "8px 0" }}>{error}</div>}
+
+        <button disabled={busy} type="submit" style={btnStyle}>
+          {busy ? "Please wait..." : mode === "signup" ? "Sign up" : "Sign in"}
+        </button>
+
+        <div style={{ marginTop: 12, textAlign: "center" }}>
+          {mode === "signup" ? (
+            <span>Already have an account? <button type="button" onClick={() => setMode("signin")} style={linkBtn}>Sign in</button></span>
+          ) : (
+            <span>New here? <button type="button" onClick={() => setMode("signup")} style={linkBtn}>Create account</button></span>
+          )}
+        </div>
+
+        <div style={{ marginTop: 12, textAlign: "center", opacity: 0.8 }}>
+          <Link to="/" style={{ color: "#ecf0f1" }}>Back to home</Link>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ---------- App root: tracks auth, protects routes, wires logout ---------- */
 export default function App() {
+  const [user, setUser] = React.useState(null);
+  const [authReady, setAuthReady] = React.useState(false);
+
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthReady(true);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleLogout = React.useCallback(() => signOut(auth), []);
+
+  if (!authReady) {
+    return <div style={{ padding: 24, color: "#ecf0f1", background: "#2c3e50" }}>Loading…</div>;
+  }
+
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/profile" element={<Profile />} />
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <Protected user={user}>
+            <Home user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <Protected user={user}>
+            <Profile user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
   );
 }
