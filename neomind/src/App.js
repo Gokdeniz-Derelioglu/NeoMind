@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate, Link } from "react-r
 import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
 import "./App.css";
-
+//TEST PURNA  
 // --- Components ---
 import Navbar from "./components/Navbar";
 import JobCard from "./components/JobCard";
