@@ -2,6 +2,7 @@
 import * as admin from "firebase-admin";
 import { User } from "../models/User";
 import { firestore } from "../firebase";
+import { Job } from "../models/Job";
 
 // ✅ Firestore reference
 const db = firestore
@@ -28,7 +29,6 @@ export const getUserById = async (userId: string) => {
     throw err;
   }
 };
-
 
 // ✅ Get all users
 export const getAllUsers = async () => {
@@ -83,6 +83,18 @@ export const increaseUserSkill = async (id: string, skill: string) => {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   return { success: true, skills };
+};
+
+export const addJobApplication = async (userId: string, job: Job) => {
+  const userRef = usersRef.doc(userId);
+  const userDoc = await userRef.get();
+
+  if (!userDoc.exists) throw new Error("User not found");
+
+  // Update appliedJobs array (create it if it doesn't exist)
+  await userRef.update({
+    appliedJobs: [...(userDoc.data()?.appliedJobs || []), job],
+  });
 };
 
 // ✅ Delete user by ID

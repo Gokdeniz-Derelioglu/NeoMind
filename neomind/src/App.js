@@ -5,6 +5,7 @@ import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
+import { addJobApplication } from "./services/userService";
 
 // --- Components ---
 import Navbar from "./components/Navbar";
@@ -38,6 +39,8 @@ function Home({ user, onLogout }) {
   const [error, setError] = useState("");
   const swipeDir = useRef(null);
   const { addAppliedJob } = useJobContext();
+  const { appliedJobs } = useJobContext();
+
 
   const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
 
@@ -50,7 +53,10 @@ function Home({ user, onLogout }) {
       setError("");
       try {
         const jobs = await getAllJobs(user);
-        setJobOpenings(jobs || []);
+        // Exclude jobs the user has already applied to
+        const appliedJobIds = (appliedJobs || []).map((j) => j.id); // assuming each appliedJob has an 'id'
+        const filteredJobs = jobs.filter((job) => !appliedJobIds.includes(job.id));
+        setJobOpenings(filteredJobs || []);
       } catch (err) {
         console.error("Error fetching jobs:", err);
         setError("Failed to load jobs. Check permissions or login.");
@@ -61,7 +67,8 @@ function Home({ user, onLogout }) {
     };
 
     loadJobs();
-  }, [user]);
+  }, [user, appliedJobs]); // add appliedJobs as dependency
+
 
   // --- Window resize ---
   useEffect(() => {
@@ -71,7 +78,7 @@ function Home({ user, onLogout }) {
   }, []);
 
   // --- Swipe handling ---
-  const triggerSwipe = (dir) => {
+  const triggerSwipe = async (dir) => {
     if (index >= jobOpenings.length) return;
     swipeDir.current = dir;
 
@@ -82,7 +89,17 @@ function Home({ user, onLogout }) {
         dir === "right" ? "0 20px 40px rgba(81, 207, 102, 0.4)" : "0 20px 40px rgba(255, 107, 107, 0.4)";
     }
 
-    if (dir === "right") addAppliedJob(jobOpenings[index]);
+    if (dir === "right") {
+      try {
+        // Add job to Firestore for the logged-in user
+        await addJobApplication(user.uid, jobOpenings[index]);
+        // Update local context (so UI reflects applied jobs)
+        addAppliedJob(jobOpenings[index]);
+      } catch (err) {
+        console.error("Failed to add job application:", err);
+        alert("Failed to apply for job. Try again.");
+      }
+    }
 
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
@@ -95,6 +112,7 @@ function Home({ user, onLogout }) {
       },
     });
   };
+
 
   const bind = useDrag(
     ({ active, movement: [mx], direction: [xDir], velocity }) => {

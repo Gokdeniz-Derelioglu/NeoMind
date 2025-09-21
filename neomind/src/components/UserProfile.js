@@ -13,32 +13,30 @@ const UserProfile = ({ userId: propUserId }) => {
 
   // Fetch user info and jobs
   useEffect(() => {
-    const fetchData = async (uid) => {
-      try {
-        const user = await getUserById(uid);
-        setUserInfo(user || {}); // Ensure it's at least an empty object
-
-        const jobs = await getAllJobs();
-        const filteredJobs = jobs.filter((job) => job?.appliedBy === uid);
-        setAppliedJobs(filteredJobs || []);
-      } catch (error) {
-        console.error("Failed to fetch user data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (propUserId) {
-      fetchData(propUserId);
-    } else {
-      const auth = getAuth();
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (user?.uid) fetchData(user.uid);
-        else setLoading(false);
-      });
-      return () => unsubscribe();
+  const fetchData = async (uid) => {
+    try {
+      const user = await getUserById(uid);
+      setUserInfo(user || {});
+      setAppliedJobs(user?.appliedJobs || []); // <- directly use appliedJobs from user doc
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [propUserId]);
+  };
+
+  if (propUserId) {
+    fetchData(propUserId);
+  } else {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user?.uid) fetchData(user.uid);
+      else setLoading(false);
+    });
+    return () => unsubscribe();
+  }
+}, [propUserId]);
+
 
   // CV upload handlers
   const handleFileUpload = (e) => {

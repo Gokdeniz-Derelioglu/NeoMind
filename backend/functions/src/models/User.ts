@@ -1,3 +1,5 @@
+import { Job } from "./Job";
+
 // models/User.ts
 export interface User {
   id?: string; // Firestore will generate this
@@ -12,4 +14,5 @@ export interface User {
   education?: string;
   employmentTypePreference?: "full-time" | "part-time" | "contract" | "internship";
   cvId?: string; // Reference to id of CV string in database
+  jobApplications?: Job[]; // Array of Job IDs the user has applied to
 }
