@@ -1,4 +1,3 @@
-// models/CV.ts
 export interface CV {
   id?: string; // Firestore will generate this
   userId: string; // Reference to the User

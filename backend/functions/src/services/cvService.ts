@@ -1,38 +1,44 @@
-// services/cvService.ts
-import * as admin from "firebase-admin";
 import { CV } from "../models/CV";
 import { User } from "../models/User";
 import { firestore } from "../firebase";
 
-// ✅ Firestore reference
-const db = firestore
+// Firestore refs
+const db = firestore;
 const cvsRef = db.collection("cvs");
 const usersRef = db.collection("users");
 
-// ✅ Add new cv (auto-generated ID)
+// Add new CV (auto-generated ID)
 export const addCV = async (cv: CV, user: User, uid: string) => {
   const docRef = await cvsRef.add({
     ...cv,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
   return { id: docRef.id, ...cv };
 };
 
-//join cv to user
+// Join CV to user
 export const joinCv = async (cvId: string, uid: string) => {
-    const userRef = usersRef.doc(uid);
-    await userRef.update({
-      cvId: cvId,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+  const userRef = usersRef.doc(uid);
+  await userRef.update({
+    cvId: cvId,
+    updatedAt: new Date(),
+  });
 };
 
-//update cv
+// Update existing CV
 export const updateCV = async (id: string, updates: Partial<CV>) => {
   const cvRef = cvsRef.doc(id);
   await cvRef.update({
     ...updates,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: new Date(),
   });
   return { success: true };
+};
+
+// Fetch CV by ID
+export const getCVById = async (id: string) => {
+  const doc = await cvsRef.doc(id).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...(doc.data() as CV) };
 };

@@ -1,6 +1,7 @@
 // src/components/UserProfile.js
 import React, { useState, useEffect, useRef } from "react";
-import { getUserById, updateUser } from "../services/userService"; // frontend service
+import { getUserById, updateUser } from "../services/userService";
+import { addCV } from "../services/cvService"; // <- updated import
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 const UserProfile = ({ userId: propUserId }) => {
@@ -15,16 +16,18 @@ const UserProfile = ({ userId: propUserId }) => {
   const [parseLoading, setParseLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [uid, setUid] = useState(propUserId || "");
+
   useEffect(() => {
     let unsub = null;
 
-    const fetchData = async (uid) => {
+    const fetchData = async (uidToFetch) => {
       setLoading(true);
       setError("");
       try {
-        const user = await getUserById(uid);
+        const user = await getUserById(uidToFetch);
         const normalized = {
-          id: user?.id ?? uid,
+          id: user?.id ?? uidToFetch,
           name: user?.name ?? "",
           email: user?.email ?? "",
           phone: user?.phone ?? "",
@@ -51,11 +54,14 @@ const UserProfile = ({ userId: propUserId }) => {
 
     if (propUserId) {
       fetchData(propUserId);
+      setUid(propUserId);
     } else {
       const auth = getAuth();
       unsub = onAuthStateChanged(auth, (u) => {
-        if (u?.uid) fetchData(u.uid);
-        else {
+        if (u?.uid) {
+          setUid(u.uid);
+          fetchData(u.uid);
+        } else {
           setLoading(false);
           setUserInfo(null);
         }
@@ -140,7 +146,7 @@ const UserProfile = ({ userId: propUserId }) => {
   // CV parsing: upload file, post to parser, save parsed text via updateUser
   const handleFileUpload = async (e) => {
     const file = e?.target?.files?.[0];
-    if (!file) return;
+    if (!file || !uid) return;
 
     if (cvPreview) URL.revokeObjectURL(cvPreview);
     setCvFile(file);
@@ -152,35 +158,30 @@ const UserProfile = ({ userId: propUserId }) => {
     try {
       const formData = new FormData();
       formData.append("file", file);
-
-      // Use your running parser endpoint. If you set "proxy" in package.json to http://localhost:8000 you can use '/parse-cv'
       const parserUrl = process.env.REACT_APP_PARSER_URL || "http://localhost:8000/parse-cv";
-      const res = await fetch(parserUrl, {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(parserUrl, { method: "POST", body: formData });
 
       if (!res.ok) {
         let body = "";
-        try {
-          body = await res.text();
-        } catch (_) {}
+        try { body = await res.text(); } catch (_) {}
         throw new Error(`Parser responded ${res.status} ${body}`);
       }
 
       const json = await res.json();
-      const parsedText = json?.text ?? json?.parsedText ?? json?.parsed ?? "";
+      const parsedText = json?.text ?? json?.parsedText ?? "";
 
-      if (userInfo?.id) {
-        await updateUser(userInfo.id, { cvText: parsedText });
-        setUserInfo((prev) => ({ ...prev, cvText: parsedText }));
-      } else {
-        setUserInfo((prev) => ({ ...prev, cvText: parsedText }));
-      }
+      // Save CV in separate collection and link to user
+      const cvData = {
+        fileName: file.name,
+        size: file.size,
+        text: parsedText,
+      };
+      const savedCv = await addCV(cvData, uid);
+
+      setUserInfo((prev) => ({ ...prev, cvText: parsedText, cvId: savedCv.id }));
     } catch (err) {
       console.error("Failed to parse CV:", err);
-      setError("Failed to parse CV (parser unreachable or error). Start parser server or check REACT_APP_PARSER_URL.");
-      // keep file preview; user can try again
+      setError("Failed to parse CV. Check parser or REACT_APP_PARSER_URL.");
     } finally {
       setParseLoading(false);
     }
@@ -194,14 +195,14 @@ const UserProfile = ({ userId: propUserId }) => {
 
     if (userInfo?.id) {
       try {
-        await updateUser(userInfo.id, { cvText: "" });
-        setUserInfo((prev) => ({ ...prev, cvText: "" }));
+        await updateUser(userInfo.id, { cvText: "", cvId: "" });
+        setUserInfo((prev) => ({ ...prev, cvText: "", cvId: "" }));
       } catch (err) {
-        console.error("Failed to clear CV text:", err);
-        setError("Failed to clear parsed CV text");
+        console.error("Failed to clear CV:", err);
+        setError("Failed to clear CV text");
       }
     } else {
-      setUserInfo((prev) => ({ ...prev, cvText: "" }));
+      setUserInfo((prev) => ({ ...prev, cvText: "", cvId: "" }));
     }
   };
 
