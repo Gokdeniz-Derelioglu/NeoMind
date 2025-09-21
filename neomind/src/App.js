@@ -1,3 +1,4 @@
+//fix it please
 // src/App.js
 import React from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate, Link } from "react-router-dom";
@@ -40,7 +41,6 @@ function Home({ user, onLogout }) {
   const swipeDir = useRef(null);
   const { addAppliedJob } = useJobContext();
   const { appliedJobs } = useJobContext();
-
 
   const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
 
