@@ -1,64 +1,85 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { getUserById } from "../services/userService";
+import { getAllJobs } from "../services/jobService";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
-  const [userInfo, setUserInfo] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    title: "Frontend Developer",
-    experience: "3-5 years",
-    skills: ["React", "JavaScript", "TypeScript", "Node.js", "CSS", "HTML"],
-    bio: "Passionate frontend developer with experience in building modern web applications. Love creating user-friendly interfaces and solving complex problems."
-  });
-
+const UserProfile = ({ userId: propUserId }) => {
+  const [userInfo, setUserInfo] = useState(null);
+  const [appliedJobs, setAppliedJobs] = useState([]);
   const [cvFile, setCvFile] = useState(null);
   const [cvPreview, setCvPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async (userId) => {
+      try {
+        const user = await getUserById(userId);
+        setUserInfo(user);
+
+        const jobs = await getAllJobs(userId);
+        const userJobs = jobs.filter((job) => job.appliedBy === userId);
+        setAppliedJobs(userJobs);
+      } catch (err) {
+        console.error("Failed to fetch user data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (propUserId) {
+      fetchData(propUserId);
+    } else {
+      const auth = getAuth();
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user?.uid) fetchData(user.uid);
+        else setLoading(false);
+      });
+      return () => unsubscribe();
+    }
+  }, [propUserId]);
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
       setCvFile(file);
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file);
-      setCvPreview(previewUrl);
+      setCvPreview(URL.createObjectURL(file));
     }
   };
 
   const handleRemoveCv = () => {
     setCvFile(null);
-    if (cvPreview) {
-      URL.revokeObjectURL(cvPreview);
-      setCvPreview(null);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (cvPreview) URL.revokeObjectURL(cvPreview);
+    setCvPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleInputChange = (field, value) => {
-    setUserInfo(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setUserInfo((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSkillAdd = (skill) => {
-    if (skill && !userInfo.skills.includes(skill)) {
-      setUserInfo(prev => ({
+    if (skill && !userInfo.skills?.includes(skill)) {
+      setUserInfo((prev) => ({
         ...prev,
-        skills: [...prev.skills, skill]
+        skills: [...(prev.skills || []), skill],
       }));
     }
   };
 
   const handleSkillRemove = (skillToRemove) => {
-    setUserInfo(prev => ({
+    setUserInfo((prev) => ({
       ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove)
+      skills: prev.skills?.filter((s) => s !== skillToRemove) || [],
     }));
   };
+
+  const handleJobRemove = (index) => {
+    setAppliedJobs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  if (loading) return <div>Loading profile...</div>;
+  if (!userInfo) return <div>User not found.</div>;
 
   return (
     <div style={{
@@ -89,13 +110,13 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
           color: "#ffffff",
           fontWeight: "bold"
         }}>
-          {userInfo.name.split(' ').map(n => n[0]).join('')}
+          {userInfo.name?.split(' ').map(n => n[0]).join('') || "JD"}
         </div>
-        <h1 style={{ margin: 0, color: "#2c3e50", fontSize: 28 }}>{userInfo.name}</h1>
-        <p style={{ margin: "8px 0 0 0", color: "#7f8c8d", fontSize: 16 }}>{userInfo.title}</p>
+        <h1 style={{ margin: 0, color: "#2c3e50", fontSize: 28 }}>{userInfo.name || "Unknown Name"}</h1>
+        <p style={{ margin: "8px 0 0 0", color: "#7f8c8d", fontSize: 16 }}>{userInfo.title || "Unknown Title"}</p>
       </div>
 
-      {/* CV Upload Section */}
+      {/* CV Upload */}
       <div style={{ marginBottom: 32 }}>
         <h3 style={{ color: "#2c3e50", marginBottom: 16 }}>📄 Resume/CV</h3>
         <div style={{
@@ -109,9 +130,7 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
             <div>
               <div style={{ marginBottom: 16 }}>
                 <span style={{ color: "#27ae60", fontSize: 48 }}>✅</span>
-                <p style={{ margin: "8px 0", color: "#2c3e50", fontWeight: 600 }}>
-                  {cvFile.name}
-                </p>
+                <p style={{ margin: "8px 0", color: "#2c3e50", fontWeight: 600 }}>{cvFile.name}</p>
                 <p style={{ margin: "4px 0", color: "#7f8c8d", fontSize: 14 }}>
                   {(cvFile.size / 1024 / 1024).toFixed(2)} MB
                 </p>
@@ -153,12 +172,8 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
             <div>
               <div style={{ marginBottom: 16 }}>
                 <span style={{ color: "#bdc3c7", fontSize: 48 }}>📁</span>
-                <p style={{ margin: "8px 0", color: "#7f8c8d" }}>
-                  Upload your resume or CV
-                </p>
-                <p style={{ margin: "4px 0", color: "#95a5a6", fontSize: 12 }}>
-                  PDF, DOC, DOCX files accepted
-                </p>
+                <p style={{ margin: "8px 0", color: "#7f8c8d" }}>Upload your resume or CV</p>
+                <p style={{ margin: "4px 0", color: "#95a5a6", fontSize: 12 }}>PDF, DOC, DOCX files accepted</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -177,11 +192,8 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
                   borderRadius: 8,
                   cursor: "pointer",
                   fontSize: 16,
-                  fontWeight: 600,
-                  transition: "background-color 0.3s ease"
+                  fontWeight: 600
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#16a085"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#1abc9c"}
               >
                 📤 Upload CV
               </button>
@@ -190,82 +202,29 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
         </div>
       </div>
 
-      {/* Personal Information */}
+      {/* Personal Info */}
       <div style={{ marginBottom: 32 }}>
         <h3 style={{ color: "#2c3e50", marginBottom: 16 }}>👤 Personal Information</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div>
-            <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={userInfo.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                border: "2px solid #ecf0f1",
-                borderRadius: 6,
-                fontSize: 16,
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={userInfo.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                border: "2px solid #ecf0f1",
-                borderRadius: 6,
-                fontSize: 16,
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={userInfo.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                border: "2px solid #ecf0f1",
-                borderRadius: 6,
-                fontSize: 16,
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
-              Location
-            </label>
-            <input
-              type="text"
-              value={userInfo.location}
-              onChange={(e) => handleInputChange("location", e.target.value)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                border: "2px solid #ecf0f1",
-                borderRadius: 6,
-                fontSize: 16,
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
+          {["name", "email", "phone", "location"].map(field => (
+            <div key={field}>
+              <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
+                {field.charAt(0).toUpperCase() + field.slice(1)}
+              </label>
+              <input
+                type={field === "email" ? "email" : field === "phone" ? "tel" : "text"}
+                value={userInfo[field] || ""}
+                onChange={(e) => handleInputChange(field, e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "2px solid #ecf0f1",
+                  borderRadius: 6,
+                  fontSize: 16
+                }}
+              />
+            </div>
+          ))}
         </div>
         <div style={{ marginTop: 16 }}>
           <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
@@ -273,24 +232,21 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
           </label>
           <input
             type="text"
-            value={userInfo.title}
+            value={userInfo.title || ""}
             onChange={(e) => handleInputChange("title", e.target.value)}
             style={{
               width: "100%",
               padding: "12px",
               border: "2px solid #ecf0f1",
               borderRadius: 6,
-              fontSize: 16,
-              boxSizing: "border-box"
+              fontSize: 16
             }}
           />
         </div>
         <div style={{ marginTop: 16 }}>
-          <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>
-            Bio
-          </label>
+          <label style={{ display: "block", marginBottom: 8, color: "#2c3e50", fontWeight: 600 }}>Bio</label>
           <textarea
-            value={userInfo.bio}
+            value={userInfo.bio || ""}
             onChange={(e) => handleInputChange("bio", e.target.value)}
             rows={4}
             style={{
@@ -299,7 +255,6 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
               border: "2px solid #ecf0f1",
               borderRadius: 6,
               fontSize: 16,
-              boxSizing: "border-box",
               resize: "vertical"
             }}
           />
@@ -310,36 +265,20 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
       <div style={{ marginBottom: 32 }}>
         <h3 style={{ color: "#2c3e50", marginBottom: 16 }}>🛠️ Skills</h3>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-          {userInfo.skills.map((skill, index) => (
-            <span
-              key={index}
-              style={{
-                backgroundColor: "#e3f2fd",
-                color: "#1976d2",
-                padding: "6px 12px",
-                borderRadius: 20,
-                fontSize: 14,
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: 8
-              }}
-            >
+          {userInfo.skills?.map((skill, index) => (
+            <span key={index} style={{
+              backgroundColor: "#e3f2fd",
+              color: "#1976d2",
+              padding: "6px 12px",
+              borderRadius: 20,
+              fontSize: 14,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}>
               {skill}
-              <button
-                onClick={() => handleSkillRemove(skill)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#1976d2",
-                  cursor: "pointer",
-                  fontSize: 16,
-                  padding: 0,
-                  marginLeft: 4
-                }}
-              >
-                ×
-              </button>
+              <button onClick={() => handleSkillRemove(skill)} style={{ background: "none", border: "none", color: "#1976d2", cursor: "pointer", fontSize: 16 }}>×</button>
             </span>
           ))}
         </div>
@@ -347,36 +286,12 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
           <input
             type="text"
             placeholder="Add a skill..."
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSkillAdd(e.target.value.trim());
-                e.target.value = '';
-              }
-            }}
-            style={{
-              flex: 1,
-              padding: "8px 12px",
-              border: "2px solid #ecf0f1",
-              borderRadius: 6,
-              fontSize: 14
-            }}
+            onKeyPress={(e) => { if (e.key === 'Enter') { handleSkillAdd(e.target.value.trim()); e.target.value = ''; } }}
+            style={{ flex: 1, padding: "8px 12px", border: "2px solid #ecf0f1", borderRadius: 6, fontSize: 14 }}
           />
           <button
-            onClick={(e) => {
-              const input = e.target.previousElementSibling;
-              handleSkillAdd(input.value.trim());
-              input.value = '';
-            }}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#1abc9c",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 600
-            }}
+            onClick={(e) => { const input = e.target.previousElementSibling; handleSkillAdd(input.value.trim()); input.value = ''; }}
+            style={{ padding: "8px 16px", backgroundColor: "#1abc9c", color: "#ffffff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}
           >
             Add
           </button>
@@ -385,17 +300,9 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
 
       {/* Applied Jobs Section */}
       <div>
-        <h3 style={{ color: "#2c3e50", marginBottom: 16 }}>
-          📋 Applied Jobs ({appliedJobs.length})
-        </h3>
+        <h3 style={{ color: "#2c3e50", marginBottom: 16 }}>📋 Applied Jobs ({appliedJobs.length})</h3>
         {appliedJobs.length === 0 ? (
-          <div style={{
-            textAlign: "center",
-            padding: "40px 20px",
-            color: "#7f8c8d",
-            backgroundColor: "#f8f9fa",
-            borderRadius: 8
-          }}>
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "#7f8c8d", backgroundColor: "#f8f9fa", borderRadius: 8 }}>
             <span style={{ fontSize: 48, marginBottom: 16, display: "block" }}>📝</span>
             <p style={{ margin: 0, fontSize: 16 }}>No jobs applied yet</p>
             <p style={{ margin: "8px 0 0 0", fontSize: 14 }}>Start swiping to find your dream job!</p>
@@ -403,75 +310,30 @@ const UserProfile = ({ appliedJobs = [], onJobRemove }) => {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {appliedJobs.map((job, index) => (
-              <div
-                key={index}
-                style={{
-                  padding: 16,
-                  border: "1px solid #ecf0f1",
-                  borderRadius: 8,
-                  backgroundColor: "#ffffff",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
-                }}
-              >
+              <div key={index} style={{ padding: 16, border: "1px solid #ecf0f1", borderRadius: 8, backgroundColor: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#2c3e50" }}>{job.position}</h4>
+                  <h4 style={{ margin: "0 0 4px 0", color: "#2c3e50" }}>{job.position || "Unknown Position"}</h4>
                   <p style={{ margin: "0 0 4px 0", color: "#7f8c8d", fontSize: 14 }}>
-                    {job.company.name} • {job.company.location}
+                    {job.company?.name || "Unknown Company"} • {job.company?.location || "Unknown Location"}
                   </p>
-                  <p style={{ margin: 0, color: "#95a5a6", fontSize: 12 }}>
-                    Applied on {job.appliedDate}
-                  </p>
+                  <p style={{ margin: 0, color: "#95a5a6", fontSize: 12 }}>Applied on {job.appliedDate || "N/A"}</p>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{
                     padding: "4px 8px",
-                    backgroundColor: job.status === "pending" ? "#fff3cd" : 
-                                   job.status === "accepted" ? "#d4edda" : "#f8d7da",
-                    color: job.status === "pending" ? "#856404" : 
-                          job.status === "accepted" ? "#155724" : "#721c24",
+                    backgroundColor: job.status === "pending" ? "#fff3cd" : job.status === "accepted" ? "#d4edda" : "#f8d7da",
+                    color: job.status === "pending" ? "#856404" : job.status === "accepted" ? "#155724" : "#721c24",
                     borderRadius: 12,
                     fontSize: 12,
                     fontWeight: 600,
                     textTransform: "capitalize"
-                  }}>
-                    {job.status}
-                  </span>
+                  }}>{job.status || "pending"}</span>
                   {job.applyLink && (
-                    <a
-                      href={job.applyLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        backgroundColor: "#3498db",
-                        color: "#ffffff",
-                        padding: "4px 8px",
-                        borderRadius: 12,
-                        textDecoration: "none",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        transition: "background-color 0.3s ease"
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#2980b9"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#3498db"}
-                    >
+                    <a href={job.applyLink} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: "#3498db", color: "#ffffff", padding: "4px 8px", borderRadius: 12, textDecoration: "none", fontSize: 11, fontWeight: 600 }}>
                       Apply
                     </a>
                   )}
-                  <button
-                    onClick={() => onJobRemove && onJobRemove(index)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#e74c3c",
-                      cursor: "pointer",
-                      fontSize: 16,
-                      padding: "4px"
-                    }}
-                  >
-                    🗑️
-                  </button>
+                  <button onClick={() => handleJobRemove(index)} style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: 16, padding: "4px" }}>🗑️</button>
                 </div>
               </div>
             ))}

@@ -16,12 +16,19 @@ export const addUser = async (user: User) => {
   return { id: docRef.id, ...user };
 };
 
-// ✅ Get user by ID
-export const getUserById = async (id: string) => {
-  const doc = await usersRef.doc(id).get();
-  if (!doc.exists) throw new Error("User not found");
-  return { id: doc.id, ...doc.data() } as User;
+// ✅ Get user by ID (Admin SDK)
+export const getUserById = async (userId: string) => {
+  if (!userId) throw new Error("User ID is required");
+  try {
+    const userDoc = await usersRef.doc(userId).get();
+    if (!userDoc.exists) throw new Error("User not found");
+    return { id: userDoc.id, ...userDoc.data() } as User;
+  } catch (err) {
+    console.error("Error fetching user:", err);
+    throw err;
+  }
 };
+
 
 // ✅ Get all users
 export const getAllUsers = async () => {
