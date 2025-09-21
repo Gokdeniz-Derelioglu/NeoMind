@@ -1,8 +1,9 @@
 // src/App.js
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate, Link } from "react-router-dom";
 import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
 // --- Components ---
@@ -112,11 +113,13 @@ function Home({ user, onLogout }) {
     { axis: "x" }
   );
 
-  // --- Conditional rendering ---
-  if (!user) return <div>Please log in to view jobs.</div>;
-  if (loading) return <div>Loading jobs...</div>;
-  if (error) return <div style={{ color: "red" }}>{error}</div>;
-  if (index >= jobOpenings.length) return <NoMoreJobs />;
+  if (jobOpenings.length === 0) {
+    return <div>Loading jobs...</div>;
+  }
+
+  if (index >= jobOpenings.length) {
+    return <NoMoreJobs />;
+  }
 
   const currentJob = jobOpenings[index];
 
@@ -138,10 +141,17 @@ function Home({ user, onLogout }) {
         }}
       >
         {!isMobile && <LeftButton triggerSwipe={triggerSwipe} />}
+
         <div style={{ paddingTop: 64, paddingBottom: 64, maxWidth: 480, width: "90vw" }}>
           {isMobile && <MobileButtons triggerSwipe={triggerSwipe} />}
-          {currentJob && <JobCard job={currentJob} bind={bind} props={props} isMobile={isMobile} />}
+
+          {currentJob ? (
+            <JobCard job={currentJob} bind={bind} props={props} isMobile={isMobile} />
+          ) : (
+            <NoMoreJobs />
+          )}
         </div>
+
         {!isMobile && <RightButton triggerSwipe={triggerSwipe} />}
       </div>
     </div>
@@ -161,15 +171,16 @@ function Profile() {
   );
 }
 
-/* ---------- Login ---------- */
+
+/* ---------- Inline Login page (from your working version) ---------- */
 function Login() {
-  const [mode, setMode] = useState("signin");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = React.useState("signin");
+  const [firstName, setFirstName] = React.useState("");
+  const [lastName, setLastName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
 
   const navigate = useNavigate();
   const from = useLocation().state?.from?.pathname || "/";
@@ -219,7 +230,9 @@ function Login() {
 
         {error && <div style={{ color: "#ffb4b4", margin: "8px 0" }}>{error}</div>}
 
-        <button disabled={busy} type="submit" style={btnStyle}>{busy ? "Please wait..." : mode === "signup" ? "Sign up" : "Sign in"}</button>
+        <button disabled={busy} type="submit" style={btnStyle}>
+          {busy ? "Please wait..." : mode === "signup" ? "Sign up" : "Sign in"}
+        </button>
 
         <div style={{ marginTop: 12, textAlign: "center" }}>
           {mode === "signup" ? (
@@ -239,10 +252,10 @@ function Login() {
 
 /* ---------- App root ---------- */
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser] = React.useState(null);
+  const [authReady, setAuthReady] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthReady(true);

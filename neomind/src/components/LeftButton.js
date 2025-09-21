@@ -38,4 +38,3 @@ const LeftButton = ({ triggerSwipe }) => {
 };
 
 export default LeftButton;
-
