@@ -1,5 +1,5 @@
 // src/App.js
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate, Link } from "react-router-dom";
 import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
@@ -13,19 +13,16 @@ import RightButton from "./components/RightButton";
 import MobileButtons from "./components/MobileButtons";
 import ProgressIndicator from "./components/ProgressIndicator";
 import NoMoreJobs from "./components/NoMoreJobs";
-import { fetchJobOpenings } from "./data/jobOpenings";
+import { getAllJobs } from "./services/jobService";
+import UserProfile from "./components/UserProfile";
+import { JobProvider, useJobContext } from "./context/JobContext";
 
 // --- Firebase ---
-import {
-  onAuthStateChanged,
-  signOut,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
+import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
-/* ---------- route guard ---------- */
+/* ---------- Route guard ---------- */
 function Protected({ user, children }) {
   const location = useLocation();
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
@@ -33,40 +30,59 @@ function Protected({ user, children }) {
 
 /* ---------- Home ---------- */
 function Home({ user, onLogout }) {
-  const [jobOpenings, setJobOpenings] = React.useState([]); // <-- FIX: added state
-  const [index, setIndex] = React.useState(0);
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [jobOpenings, setJobOpenings] = useState([]);
+  const [index, setIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const swipeDir = useRef(null);
+  const { addAppliedJob } = useJobContext();
 
-  const [props, api] = useSpring(() => ({
-    x: 0,
-    rot: 0,
-    scale: 1,
-    config: config.stiff,
-  }));
+  const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
 
-  // Fetch jobs
-  React.useEffect(() => {
-    async function loadJobs() {
+  // --- Fetch jobs only when user exists ---
+  useEffect(() => {
+    if (!user) return;
+
+    const loadJobs = async () => {
+      setLoading(true);
+      setError("");
       try {
-        const jobs = await fetchJobOpenings();
+        const jobs = await getAllJobs(user);
         setJobOpenings(jobs || []);
       } catch (err) {
         console.error("Error fetching jobs:", err);
+        setError("Failed to load jobs. Check permissions or login.");
         setJobOpenings([]);
+      } finally {
+        setLoading(false);
       }
-    }
-    loadJobs();
-  }, []);
+    };
 
-  // Resize check
-  React.useEffect(() => {
+    loadJobs();
+  }, [user]);
+
+  // --- Window resize ---
+  useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // --- Swipe handling ---
   const triggerSwipe = (dir) => {
     if (index >= jobOpenings.length) return;
+    swipeDir.current = dir;
+
+    const card = document.querySelector(".job-card");
+    if (card) {
+      card.style.border = dir === "right" ? "4px solid #51cf66" : "4px solid #ff6b6b";
+      card.style.boxShadow =
+        dir === "right" ? "0 20px 40px rgba(81, 207, 102, 0.4)" : "0 20px 40px rgba(255, 107, 107, 0.4)";
+    }
+
+    if (dir === "right") addAppliedJob(jobOpenings[index]);
+
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
       rot: dir === "right" ? 20 : -20,
@@ -96,20 +112,17 @@ function Home({ user, onLogout }) {
     { axis: "x" }
   );
 
-  if (jobOpenings.length === 0) {
-    return <div>Loading jobs...</div>;
-  }
-
-  if (index >= jobOpenings.length) {
-    return <NoMoreJobs />;
-  }
+  // --- Conditional rendering ---
+  if (!user) return <div>Please log in to view jobs.</div>;
+  if (loading) return <div>Loading jobs...</div>;
+  if (error) return <div style={{ color: "red" }}>{error}</div>;
+  if (index >= jobOpenings.length) return <NoMoreJobs />;
 
   const currentJob = jobOpenings[index];
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", userSelect: "none" }}>
       <Navbar user={user} onLogout={onLogout} />
-
       <ProgressIndicator currentIndex={index} totalJobs={jobOpenings.length} />
 
       <div
@@ -125,17 +138,10 @@ function Home({ user, onLogout }) {
         }}
       >
         {!isMobile && <LeftButton triggerSwipe={triggerSwipe} />}
-
         <div style={{ paddingTop: 64, paddingBottom: 64, maxWidth: 480, width: "90vw" }}>
           {isMobile && <MobileButtons triggerSwipe={triggerSwipe} />}
-
-          {currentJob ? (
-            <JobCard job={currentJob} bind={bind} props={props} isMobile={isMobile} />
-          ) : (
-            <NoMoreJobs />
-          )}
+          {currentJob && <JobCard job={currentJob} bind={bind} props={props} isMobile={isMobile} />}
         </div>
-
         {!isMobile && <RightButton triggerSwipe={triggerSwipe} />}
       </div>
     </div>
@@ -143,47 +149,27 @@ function Home({ user, onLogout }) {
 }
 
 /* ---------- Profile ---------- */
-function Profile({ user, onLogout }) {
-  const navigate = useNavigate();
+function Profile() {
+  const { appliedJobs, removeAppliedJob } = useJobContext();
   return (
-    <div style={{ minHeight: "100vh", background: "#2c3e50", color: "#ecf0f1", padding: 24 }}>
-      <Navbar user={user} onLogout={onLogout} />
-      <h1>Profile</h1>
-      {user ? (
-        <>
-          <p><b>UID:</b> {user.uid}</p>
-          <p><b>Email:</b> {user.email}</p>
-        </>
-      ) : (
-        <p>Loading…</p>
-      )}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          marginTop: 20,
-          padding: "10px 16px",
-          borderRadius: 8,
-          border: "none",
-          background: "#1abc9c",
-          color: "#ecf0f1",
-        }}
-      >
-        Back
-      </button>
+    <div style={{ minHeight: "100vh", backgroundColor: "#f8f9fa", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", padding: "20px 0" }}>
+      <Navbar />
+      <div style={{ padding: "0 20px" }}>
+        <UserProfile appliedJobs={appliedJobs} onJobRemove={removeAppliedJob} />
+      </div>
     </div>
   );
 }
 
-
-/* ---------- Inline Login page (from your working version) ---------- */
+/* ---------- Login ---------- */
 function Login() {
-  const [mode, setMode] = React.useState("signin");
-  const [firstName, setFirstName] = React.useState("");
-  const [lastName, setLastName] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
+  const [mode, setMode] = useState("signin");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const navigate = useNavigate();
   const from = useLocation().state?.from?.pathname || "/";
@@ -194,7 +180,8 @@ function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(""); setBusy(true);
+    setError("");
+    setBusy(true);
     try {
       if (mode === "signup") {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -232,9 +219,7 @@ function Login() {
 
         {error && <div style={{ color: "#ffb4b4", margin: "8px 0" }}>{error}</div>}
 
-        <button disabled={busy} type="submit" style={btnStyle}>
-          {busy ? "Please wait..." : mode === "signup" ? "Sign up" : "Sign in"}
-        </button>
+        <button disabled={busy} type="submit" style={btnStyle}>{busy ? "Please wait..." : mode === "signup" ? "Sign up" : "Sign in"}</button>
 
         <div style={{ marginTop: 12, textAlign: "center" }}>
           {mode === "signup" ? (
@@ -254,10 +239,10 @@ function Login() {
 
 /* ---------- App root ---------- */
 export default function App() {
-  const [user, setUser] = React.useState(null);
-  const [authReady, setAuthReady] = React.useState(false);
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthReady(true);
@@ -267,30 +252,16 @@ export default function App() {
 
   const handleLogout = React.useCallback(() => signOut(auth), []);
 
-  if (!authReady) {
-    return <div style={{ padding: 24, color: "#ecf0f1", background: "#2c3e50" }}>Loading…</div>;
-  }
+  if (!authReady) return <div style={{ padding: 24, color: "#ecf0f1", background: "#2c3e50" }}>Loading…</div>;
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <Protected user={user}>
-            <Home user={user} onLogout={handleLogout} />
-          </Protected>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <Protected user={user}>
-            <Profile user={user} onLogout={handleLogout} />
-          </Protected>
-        }
-      />
-      <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
-    </Routes>
+    <JobProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Protected user={user}><Home user={user} onLogout={handleLogout} /></Protected>} />
+        <Route path="/profile" element={<Protected user={user}><Profile /></Protected>} />
+        <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
+      </Routes>
+    </JobProvider>
   );
 }
