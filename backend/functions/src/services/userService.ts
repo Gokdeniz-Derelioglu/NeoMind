@@ -97,6 +97,21 @@ export const addJobApplication = async (userId: string, job: Job) => {
   });
 };
 
+// Update the CV text of a user
+export async function updateUserCvText(userId: string, cvText: string): Promise<void> {
+  try {
+    const userRef = usersRef.doc(userId);
+    await userRef.update({
+      cvText,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error("Failed to update CV text:", err);
+    throw err;
+  }
+}
+
+
 // ✅ Delete user by ID
 export const deleteUser = async (id: string) => {
   await usersRef.doc(id).delete();

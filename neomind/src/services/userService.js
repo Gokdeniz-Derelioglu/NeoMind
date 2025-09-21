@@ -53,6 +53,16 @@ export const addUser = async (userId, userData) => {
   }
 };
 
+export async function updateUserCvText(userId, cvText) {
+  try {
+    const userRef = doc(db, "users", userId);
+    await updateDoc(userRef, { cvText });
+  } catch (err) {
+    console.error("Failed to update CV text:", err);
+    throw err;
+  }
+}
+
 // --- NEW: Add a job application for a user ---
 export const addJobApplication = async (userId, job) => {
   if (!userId) throw new Error("User ID is required");
