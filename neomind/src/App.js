@@ -4,9 +4,7 @@ import React from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate, Link } from "react-router-dom";
 import { useSpring, config } from "@react-spring/web";
 import { useDrag } from "react-use-gesture";
-import { useState, useEffect, useRef } from "react";
 import "./App.css";
-import { addJobApplication } from "./services/userService";
 
 // --- Components ---
 import Navbar from "./components/Navbar";
@@ -16,16 +14,19 @@ import RightButton from "./components/RightButton";
 import MobileButtons from "./components/MobileButtons";
 import ProgressIndicator from "./components/ProgressIndicator";
 import NoMoreJobs from "./components/NoMoreJobs";
-import { getAllJobs } from "./services/jobService";
-import UserProfile from "./components/UserProfile";
-import { JobProvider, useJobContext } from "./context/JobContext";
+import { fetchJobOpenings } from "./data/jobOpenings";
 
 // --- Firebase ---
-import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
-/* ---------- Route guard ---------- */
+/* ---------- route guard ---------- */
 function Protected({ user, children }) {
   const location = useLocation();
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
@@ -33,74 +34,40 @@ function Protected({ user, children }) {
 
 /* ---------- Home ---------- */
 function Home({ user, onLogout }) {
-  const [jobOpenings, setJobOpenings] = useState([]);
-  const [index, setIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const swipeDir = useRef(null);
-  const { addAppliedJob } = useJobContext();
-  const { appliedJobs } = useJobContext();
+  const [jobOpenings, setJobOpenings] = React.useState([]); // <-- FIX: added state
+  const [index, setIndex] = React.useState(0);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
 
-  const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
+  const [props, api] = useSpring(() => ({
+    x: 0,
+    rot: 0,
+    scale: 1,
+    config: config.stiff,
+  }));
 
-  // --- Fetch jobs only when user exists ---
-  useEffect(() => {
-    if (!user) return;
-
-    const loadJobs = async () => {
-      setLoading(true);
-      setError("");
+  // Fetch jobs
+  React.useEffect(() => {
+    async function loadJobs() {
       try {
-        const jobs = await getAllJobs(user);
-        // Exclude jobs the user has already applied to
-        const appliedJobIds = (appliedJobs || []).map((j) => j.id); // assuming each appliedJob has an 'id'
-        const filteredJobs = jobs.filter((job) => !appliedJobIds.includes(job.id));
-        setJobOpenings(filteredJobs || []);
+        const jobs = await fetchJobOpenings();
+        setJobOpenings(jobs || []);
       } catch (err) {
         console.error("Error fetching jobs:", err);
-        setError("Failed to load jobs. Check permissions or login.");
         setJobOpenings([]);
-      } finally {
-        setLoading(false);
       }
-    };
-
+    }
     loadJobs();
-  }, [user, appliedJobs]); // add appliedJobs as dependency
+  }, []);
 
-
-  // --- Window resize ---
-  useEffect(() => {
+  // Resize check
+  React.useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // --- Swipe handling ---
-  const triggerSwipe = async (dir) => {
+  const triggerSwipe = (dir) => {
     if (index >= jobOpenings.length) return;
-    swipeDir.current = dir;
-
-    const card = document.querySelector(".job-card");
-    if (card) {
-      card.style.border = dir === "right" ? "4px solid #51cf66" : "4px solid #ff6b6b";
-      card.style.boxShadow =
-        dir === "right" ? "0 20px 40px rgba(81, 207, 102, 0.4)" : "0 20px 40px rgba(255, 107, 107, 0.4)";
-    }
-
-    if (dir === "right") {
-      try {
-        // Add job to Firestore for the logged-in user
-        await addJobApplication(user.uid, jobOpenings[index]);
-        // Update local context (so UI reflects applied jobs)
-        addAppliedJob(jobOpenings[index]);
-      } catch (err) {
-        console.error("Failed to add job application:", err);
-        alert("Failed to apply for job. Try again.");
-      }
-    }
-
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
       rot: dir === "right" ? 20 : -20,
@@ -112,7 +79,6 @@ function Home({ user, onLogout }) {
       },
     });
   };
-
 
   const bind = useDrag(
     ({ active, movement: [mx], direction: [xDir], velocity }) => {
@@ -144,6 +110,7 @@ function Home({ user, onLogout }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", userSelect: "none" }}>
       <Navbar user={user} onLogout={onLogout} />
+
       <ProgressIndicator currentIndex={index} totalJobs={jobOpenings.length} />
 
       <div
@@ -177,14 +144,33 @@ function Home({ user, onLogout }) {
 }
 
 /* ---------- Profile ---------- */
-function Profile() {
-  const { appliedJobs, removeAppliedJob } = useJobContext();
+function Profile({ user, onLogout }) {
+  const navigate = useNavigate();
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f8f9fa", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", padding: "20px 0" }}>
-      <Navbar />
-      <div style={{ padding: "0 20px" }}>
-        <UserProfile appliedJobs={appliedJobs} onJobRemove={removeAppliedJob} />
-      </div>
+    <div style={{ minHeight: "100vh", background: "#2c3e50", color: "#ecf0f1", padding: 24 }}>
+      <Navbar user={user} onLogout={onLogout} />
+      <h1>Profile</h1>
+      {user ? (
+        <>
+          <p><b>UID:</b> {user.uid}</p>
+          <p><b>Email:</b> {user.email}</p>
+        </>
+      ) : (
+        <p>Loading…</p>
+      )}
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          marginTop: 20,
+          padding: "10px 16px",
+          borderRadius: 8,
+          border: "none",
+          background: "#1abc9c",
+          color: "#ecf0f1",
+        }}
+      >
+        Back
+      </button>
     </div>
   );
 }
@@ -209,8 +195,7 @@ function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
-    setBusy(true);
+    setError(""); setBusy(true);
     try {
       if (mode === "signup") {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -283,16 +268,30 @@ export default function App() {
 
   const handleLogout = React.useCallback(() => signOut(auth), []);
 
-  if (!authReady) return <div style={{ padding: 24, color: "#ecf0f1", background: "#2c3e50" }}>Loading…</div>;
+  if (!authReady) {
+    return <div style={{ padding: 24, color: "#ecf0f1", background: "#2c3e50" }}>Loading…</div>;
+  }
 
   return (
-    <JobProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Protected user={user}><Home user={user} onLogout={handleLogout} /></Protected>} />
-        <Route path="/profile" element={<Protected user={user}><Profile /></Protected>} />
-        <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
-      </Routes>
-    </JobProvider>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <Protected user={user}>
+            <Home user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <Protected user={user}>
+            <Profile user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
+    </Routes>
   );
 }
