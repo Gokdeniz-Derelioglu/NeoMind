@@ -70,4 +70,3 @@ const MobileButtons = ({ triggerSwipe }) => {
 };
 
 export default MobileButtons;
-
