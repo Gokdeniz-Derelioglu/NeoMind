@@ -1,3 +1,5 @@
+# run python -m uvicorn backendAPI:app --reload --port 8000 at cd backend/funcitons/src
+
 import os
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
