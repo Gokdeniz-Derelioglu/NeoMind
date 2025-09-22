@@ -45,6 +45,7 @@ function Home({ user, onLogout }) {
   const [props, api] = useSpring(() => ({ x: 0, rot: 0, scale: 1, config: config.stiff }));
 
   // --- Fetch jobs only when user exists ---
+  //TESET TESTTESTSETSESETSETSET PURNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
   useEffect(() => {
     if (!user) return;
 
