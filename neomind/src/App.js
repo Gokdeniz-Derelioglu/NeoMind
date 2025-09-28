@@ -90,17 +90,56 @@ function Home({ user, onLogout }) {
         dir === "right" ? "0 20px 40px rgba(81, 207, 102, 0.4)" : "0 20px 40px rgba(255, 107, 107, 0.4)";
     }
 
-    if (dir === "right") {
-      try {
-        // Add job to Firestore for the logged-in user
-        await addJobApplication(user.uid, jobOpenings[index]);
-        // Update local context (so UI reflects applied jobs)
-        addAppliedJob(jobOpenings[index]);
-      } catch (err) {
-        console.error("Failed to add job application:", err);
-        alert("Failed to apply for job. Try again.");
-      }
+if (dir === "right") {
+  try {
+    await addJobApplication(user.uid, jobOpenings[index]);
+    addAppliedJob(jobOpenings[index]);
+  } catch (err) {
+    console.error("Failed to add job application:", err);
+    alert("Failed to apply for job. Try again.");
+  }
+
+  // --- Call Python server to generate the cover letter and print it ---
+  try {
+    // Replace this with where you store the user's CV text
+    const userCVText = window.userCVText || `
+Arda Yüksel — Computer Engineering student (Bilkent)
+Projects: FOTAS labeling tool (Streamlit, HDF5/BIN), PCA/FFT filters for DAS, TimesNet experiments...
+Skills: Python, NumPy, SciPy, sklearn, Streamlit, audio DSP, labeling pipelines...
+Achievements: Led Python/ML workshops for 130+ students; built real-time coding app; internship on audio ML...
+Contact: arda@example.com | +90 5xx xxx xx xx
+`.trim();
+
+    const resp = await fetch("http://localhost:8000/generate-cover-letter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cv_text: userCVText,
+        job_json: jobOpenings[index],
+        candidate_overrides: {
+          name: user?.displayName || "Arda Yüksel",
+          email: user?.email || "arda@example.com",
+          phone: "+90 5xx xxx xx xx",
+          headline: "Computer Engineering student focusing on ML + data systems",
+        },
+        recipient_email: "saljug.mammadli@gmail.com"
+      }),
+    });
+
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Server responded ${resp.status}: ${errText}`);
     }
+
+    const data = await resp.json();
+    console.log("Cover letter from server:\n\n" + data.letter);
+    // Server also prints the letter to its terminal
+  } catch (err) {
+    console.error("Cover letter generation failed:", err);
+  }
+}
+
 
     api.start({
       x: (200 + window.innerWidth) * (dir === "right" ? 1 : -1),
